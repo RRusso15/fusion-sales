@@ -1,10 +1,17 @@
 import { createContext } from "react";
 
+/**
+ * Roles supported by frontend.
+ * Backend may support more — we only care about these two.
+ */
+export type UserRole = "Admin" | "SalesRep";
+
 export interface IUser {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
+  id: string; // UUID from API
+  email?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  roles?: string[]; // API returns string[]
 }
 
 export interface IAuthStateContext {
@@ -18,7 +25,12 @@ export interface IAuthStateContext {
 export interface IAuthActionContext {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (
+    firstName: string,
+    lastName: string,
+    email: string,
+    password: string
+  ) => Promise<void>;
 }
 
 export const INITIAL_STATE: IAuthStateContext = {
@@ -29,5 +41,8 @@ export const INITIAL_STATE: IAuthStateContext = {
   token: undefined,
 };
 
-export const AuthStateContext = createContext<IAuthStateContext>(INITIAL_STATE);
-export const AuthActionContext = createContext<IAuthActionContext>(undefined as any);
+export const AuthStateContext =
+  createContext<IAuthStateContext>(INITIAL_STATE);
+
+export const AuthActionContext =
+  createContext<IAuthActionContext>(undefined as any);

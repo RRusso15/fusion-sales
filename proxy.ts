@@ -1,35 +1,44 @@
-// server side route protection
-
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export function proxy(request: NextRequest) {
-  const token = request.cookies.get("auth_token");
+  const token = request.cookies.get("auth_token")?.value;
+  const { pathname } = request.nextUrl;
 
-  // If no token, redirect to correct login route
-  if (!token) {
-    return NextResponse.redirect(
-      new URL("/login", request.url)
-    );
+  // allow public auth routes
+  if (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register")
+  ) {
+    // If already authenticated, prevent going back to login/register
+    if (token) {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+
+    return NextResponse.next();
+  }
+
+  // protect admin routes
+  if (pathname.startsWith("/admin")) {
+    if (!token) {
+      return NextResponse.redirect(
+        new URL("/login", request.url)
+      );
+    }
+  }
+
+  // protect sales routes
+  if (pathname.startsWith("/sales")) {
+    if (!token) {
+      return NextResponse.redirect(
+        new URL("/login", request.url)
+      );
+    }
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/sales/:path*", "/admin/:path*"],
+  matcher: ["/admin/:path*", "/sales/:path*", "/login", "/register"],
 };
-
-
-/*
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-
-export function proxy(request: NextRequest) {
-  return NextResponse.next();
-}
-
-export const config = {
-  matcher: ["/user/:path*", "/admin/:path*"],
-};
-*/

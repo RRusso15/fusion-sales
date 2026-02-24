@@ -18,95 +18,129 @@ import {
   registerError,
 } from "./actions";
 
-import { setAuthCookie, removeAuthCookie, getAuthCookie } from "@/utils/cookie";
+import {
+  setAuthCookie,
+  removeAuthCookie,
+  getAuthCookie,
+} from "@/utils/cookie";
 import { getAxiosInstance } from "@/utils/axiosInstance";
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [state, dispatch] = useReducer(AuthReducer, INITIAL_STATE);
+  const axios = getAxiosInstance();
 
+  /**
+   * On App Load:
+   * 1. Check token in cookie
+   * 2. If exists → call /api/Auth/me
+   * 3. Restore session if valid
+   */
   useEffect(() => {
-    const token = getAuthCookie();
+    const initializeAuth = async () => {
+      const token = getAuthCookie();
 
-    if (token) {
-      // In real API scenario, we would fetch user from backend
-      const mockUser: IUser = {
-        id: 1,
-        name: "Persisted User",
-        email: "persisted@email.com",
-        role: "user",
-      };
+      if (!token) return;
 
-      dispatch(loginSuccess({ user: mockUser, token }));
-    }
+      try {
+        const response = await axios.get("/api/Auth/me");
+
+        const data = response.data;
+
+        const user: IUser = {
+          id: data.userId,
+          email: data.email,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          roles: data.roles,
+        };
+
+        dispatch(loginSuccess({ user, token }));
+      } catch (error) {
+        // Token invalid or expired
+        removeAuthCookie();
+        dispatch(logoutAction());
+      }
+    };
+
+    initializeAuth();
   }, []);
 
+  /**
+   * LOGIN
+   */
   const login = async (email: string, password: string) => {
     dispatch(loginPending());
 
     try {
-      // Temporary mock logic until API arrives
-      if (!email || !password) {
-        throw new Error("Invalid credentials");
-      }
-
-      // Simulate API response shape (flexible)
-      const mockResponse = {
-        user: {
-          id: 1,
-          name: "John Doe",
-          email,
-          role: email.includes("admin") ? "admin" : "user",
-        },
-        token: "mock-jwt-token",
-      };
-
-      const { user, token } = mockResponse;
-      /*
-      const axios = getAxiosInstance();
-        const response = await axios.post("/auth/login", {
+      const response = await axios.post("/api/Auth/login", {
         email,
         password,
-        });
+      });
 
-        const { user, token } = response.data;
-      */
+      const data = response.data;
+
+      const token = data.token;
+
+      const user: IUser = {
+        id: data.userId,
+        email: data.email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        roles: data.roles,
+      };
 
       setAuthCookie(token);
 
       dispatch(loginSuccess({ user, token }));
     } catch (error) {
       dispatch(loginError());
+      throw error;
     }
   };
 
+  /**
+   * REGISTER
+   */
   const register = async (
-    name: string,
+    firstName: string,
+    lastName: string,
     email: string,
     password: string
   ) => {
     dispatch(registerPending());
 
     try {
-      const mockResponse = {
-        user: {
-          id: Date.now(),
-          name,
-          email,
-          role: "user",
-        },
-        token: "mock-jwt-token",
-      };
+      const response = await axios.post("/api/Auth/register", {
+        firstName,
+        lastName,
+        email,
+        password,
+      });
 
-      const { user, token } = mockResponse;
+      const data = response.data;
+
+      const token = data.token;
+
+      const user: IUser = {
+        id: data.userId,
+        email: data.email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        roles: data.roles,
+      };
 
       setAuthCookie(token);
 
       dispatch(registerSuccess({ user, token }));
-    } catch {
+    } catch (error) {
       dispatch(registerError());
+      throw error;
     }
   };
 
+  /**
+   * LOGOUT
+   */
   const logout = () => {
     removeAuthCookie();
     dispatch(logoutAction());

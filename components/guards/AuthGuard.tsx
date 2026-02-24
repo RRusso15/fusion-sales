@@ -6,7 +6,7 @@ import { useAuthState } from "@/providers/authProvider";
 
 interface AuthGuardProps {
   children: React.ReactNode;
-  requiredRole?: "sales" | "admin";
+  requiredRole?: "Admin" | "SalesRep";
 }
 
 export const AuthGuard = ({
@@ -16,6 +16,11 @@ export const AuthGuard = ({
   const { isAuthenticated, user, isPending } = useAuthState();
   const router = useRouter();
 
+  const hasRequiredRole = () => {
+    if (!requiredRole) return true;
+    return user?.roles?.includes(requiredRole);
+  };
+
   useEffect(() => {
     if (isPending) return;
 
@@ -24,7 +29,7 @@ export const AuthGuard = ({
       return;
     }
 
-    if (requiredRole && user?.role !== requiredRole) {
+    if (!hasRequiredRole()) {
       router.replace("/");
     }
   }, [isAuthenticated, user, requiredRole, router, isPending]);
@@ -37,7 +42,7 @@ export const AuthGuard = ({
     return null;
   }
 
-  if (requiredRole && user?.role !== requiredRole) {
+  if (!hasRequiredRole()) {
     return null;
   }
 
