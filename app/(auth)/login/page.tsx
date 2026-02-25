@@ -1,93 +1,56 @@
 "use client";
-/*
-import { Button, Typography, Space, Card } from "antd";
+
+import { Card, Form, Input, Button, Typography, message } from "antd";
+import { useAuthActions, useAuthState } from "@/providers/authProvider";
 import { useRouter } from "next/navigation";
 
-const { Title, Text } = Typography;
-
-
 export default function LoginPage() {
+  const { login } = useAuthActions();
+  const { isPending } = useAuthState();
   const router = useRouter();
 
-  return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "100vh",
-      }}
-    >
-      <Card style={{ width: 400 }}>
-        
-        <Title level={3}>Select Login Type</Title>
-
-        <Text>Choose which dashboard to enter:</Text>
-
-        <Button
-          type="primary"
-          block
-          onClick={() => router.push("/user/dashboard")}
-        >
-          Login as User
-        </Button>
-
-        <Button
-          type="default"
-          block
-          onClick={() => router.push("/admin/dashboard")}
-        >
-          Login as Admin
-        </Button>
-        
-      </Card>
-    </div>
-  );
-}
-  */
-
-import { useRouter } from "next/navigation";
-import { Button, Typography, Space, Card } from "antd";
-const { Title, Text } = Typography;
-
-
-export default function LoginPage() {
-  const router = useRouter();
-
-  const handleLogin = (role: "user" | "admin") => {
-    document.cookie = "auth_token=dummy_token; path=/";
-
-    if (role === "user") {
-      router.push("/user/dashboard");
-    } else {
-      router.push("/admin/dashboard");
+  const onFinish = async (values: any) => {
+    try {
+      await login(values.email, values.password);
+      message.success("Login successful");
+      router.push("/");
+    } catch {
+      message.error("Login failed");
     }
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "100vh",
-      }}
-    >
-      <Card style={{ width: 400 }}>
-        
-        <Title level={3}>Select Login Type</Title>
+    <Card title="Login" style={{ width: 400 }}>
+      <Form layout="vertical" onFinish={onFinish}>
+        <Form.Item
+          name="email"
+          label="Email"
+          rules={[{ required: true }]}
+        >
+          <Input />
+        </Form.Item>
 
-        <Text>Choose which dashboard to enter:</Text>
+        <Form.Item
+          name="password"
+          label="Password"
+          rules={[{ required: true }]}
+        >
+          <Input.Password />
+        </Form.Item>
 
-        <Button onClick={() => handleLogin("user")}>
-            Login as User
-          </Button>
-
-        <Button onClick={() => handleLogin("admin")}>
-          Login as Admin
+        <Button
+          type="primary"
+          htmlType="submit"
+          loading={isPending}
+          block
+        >
+          Login
         </Button>
-        
-      </Card>
-    </div>
+      </Form>
+
+      <Typography.Paragraph style={{ marginTop: 16 }}>
+        No account? <a href="/register">Register</a>
+      </Typography.Paragraph>
+    </Card>
   );
 }
