@@ -1,8 +1,26 @@
-export default function register() {
+"use client";
+
+import { Button, Typography } from "antd";
+import { useAuthActions, useAuthState } from "@/providers/authProvider";
+
+export default function SalesPage() {
+  const { user } = useAuthState();
+  const { logout } = useAuthActions();
+  console.log("User:", user);
+
   return (
-    <main style={{ padding: "2rem", fontFamily: "sans-serif" }}>
-      <h1>Welcome to My Next.js App</h1>
-      <p>This is a simple page.tsx example.</p>
-    </main>
+    <>
+      <Typography.Title level={2}>
+        Sales Dashboard
+      </Typography.Title>
+
+      <Typography.Paragraph>
+        Welcome {user?.firstName} ({user?.roles?.join(", ")})
+      </Typography.Paragraph>
+
+      <Button danger onClick={logout}>
+        Logout
+      </Button>
+    </>
   );
 }

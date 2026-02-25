@@ -1,3 +1,6 @@
+"use client";
+
+import { Layout } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
 
 export default function SalesLayout({
@@ -7,7 +10,11 @@ export default function SalesLayout({
 }) {
   return (
     <AuthGuard requiredRole="SalesRep">
-      {children}
+      <Layout style={{ minHeight: "100vh" }}>
+        <Layout.Content style={{ padding: 40 }}>
+          {children}
+        </Layout.Content>
+      </Layout>
     </AuthGuard>
   );
 }

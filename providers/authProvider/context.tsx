@@ -34,7 +34,7 @@ export interface IAuthActionContext {
 }
 
 export const INITIAL_STATE: IAuthStateContext = {
-  isPending: false,
+  isPending: true,//change to flase
   isError: false,
   isAuthenticated: false,
   user: undefined,

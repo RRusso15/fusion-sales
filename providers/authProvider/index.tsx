@@ -39,10 +39,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const initializeAuth = async () => {
       const token = getAuthCookie();
 
-      if (!token) return;
+      if (!token) {
+        dispatch(logoutAction()); //dont dispatch just return
+        return;
+      }
 
       try {
         const response = await axios.get("/api/Auth/me");
+        console.log("ME RESPONSE:", response.data);//remove
 
         const data = response.data;
 
