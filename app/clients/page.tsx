@@ -43,7 +43,7 @@ const ClientsContent = () => {
   const canCreate = hasPermission(activeRole, Permission.createClient);
 
   const load = useCallback(async () => {
-    await fetchClients({ pageNumber: 1, pageSize: 20 });
+    await fetchClients({ pageNumber: 1, pageSize: 100, isActive: true });
   }, [fetchClients]);
 
   useEffect(() => {

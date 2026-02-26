@@ -56,7 +56,7 @@ const OpportunitiesContent = () => {
   const { clients } = useClientState();
   const { contacts } = useContactState();
   const { users: tenantUsers } = useUsersState();
-  const { fetchOpportunities, fetchMyOpportunities, createOpportunity, updateOpportunity, assignOpportunity, advanceStage, moveStage } =
+  const { fetchOpportunities, fetchMyOpportunities, createOpportunity, updateOpportunity, assignOpportunity, moveStage } =
     useOpportunityActions();
   const { fetchClients } = useClientActions();
   const { fetchContacts } = useContactActions();
@@ -108,11 +108,18 @@ const OpportunitiesContent = () => {
 
   const handleAdvance = async (id: string) => {
     try {
-      await advanceStage(id, "Advanced from UI workflow");
+      const record = opportunities.find((item) => item.id === id);
+      const currentStage = record?.stage ?? OpportunityStage.Lead;
+      if (currentStage >= OpportunityStage.Negotiation) {
+        message.info("Use Close Won or Close Lost to complete this opportunity.");
+        return;
+      }
+      const nextStage = (currentStage + 1) as OpportunityStageValue;
+      await moveStage(id, nextStage, "Advanced from UI workflow");
       await load();
       message.success("Stage advanced");
-    } catch {
-      message.error("Unable to advance stage");
+    } catch (error) {
+      message.error(getErrorMessage(error, "Unable to advance stage"));
     }
   };
 
@@ -197,9 +204,22 @@ const OpportunitiesContent = () => {
       title: "Stage",
       dataIndex: "stage",
       key: "stage",
-      render: (value?: number) => (
-        <Tag>{(OpportunityStageLabels as Record<number, string>)[value ?? 0] ?? "-"}</Tag>
-      ),
+      render: (value?: number) => {
+        const stage = value ?? 0;
+        const colorByStage: Record<number, string> = {
+          [OpportunityStage.Lead]: "default",
+          [OpportunityStage.Qualified]: "blue",
+          [OpportunityStage.Proposal]: "purple",
+          [OpportunityStage.Negotiation]: "orange",
+          [OpportunityStage.ClosedWon]: "green",
+          [OpportunityStage.ClosedLost]: "red",
+        };
+        return (
+          <Tag color={colorByStage[stage] ?? "default"}>
+            {(OpportunityStageLabels as Record<number, string>)[stage] ?? "-"}
+          </Tag>
+        );
+      },
     },
     {
       title: "Workflow",

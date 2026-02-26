@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Button,
+  Button,
   Collapse,
+  DatePicker,
   Form,
   Input,
   Modal,
@@ -31,6 +32,7 @@ import type {
   RelatedToTypeValue,
 } from "@/constants/enums";
 import {
+  ActivityStatus,
   ActivityStatusLabels,
   RelatedToType,
   ActivityTypeLabels,
@@ -62,6 +64,7 @@ import {
   useUsersActions,
   useUsersState,
 } from "@/providers/usersProvider";
+import dayjs, { Dayjs } from "dayjs";
 
 const ActivitiesContent = () => {
   const { role, user } = useAuthState();
@@ -157,24 +160,23 @@ const ActivitiesContent = () => {
     createSubject?: string;
     createDescription?: string;
     createPriority?: number;
-    createDueDate?: string;
+    createDueDate?: Dayjs;
     createAssignedToId?: string;
     createRelatedType?: number;
     createRelatedId?: string;
   }) => {
     try {
-      if (values.createType && values.createSubject && canCreate) {
-        await createActivity({
-          type: values.createType as ActivityTypeValue,
-          subject: values.createSubject,
-          description: values.createDescription,
-          priority: values.createPriority as PriorityValue | undefined,
-          dueDate: values.createDueDate,
-          assignedToId: values.createAssignedToId,
-          relatedToType: values.createRelatedType as RelatedToTypeValue | undefined,
-          relatedToId: values.createRelatedId,
-        });
-      }
+      if (!canCreate) return;
+      await createActivity({
+        type: values.createType as ActivityTypeValue,
+        subject: values.createSubject,
+        description: values.createDescription,
+        priority: values.createPriority as PriorityValue | undefined,
+        dueDate: values.createDueDate?.format("YYYY-MM-DD"),
+        assignedToId: values.createAssignedToId,
+        relatedToType: values.createRelatedType as RelatedToTypeValue | undefined,
+        relatedToId: values.createRelatedId,
+      });
       await load();
       message.success("Activity created");
     } catch (error) {
@@ -199,7 +201,7 @@ const ActivitiesContent = () => {
     editForm.setFieldsValue({
       subject: activityRecord.subject,
       description: activityRecord.description,
-      dueDate: activityRecord.dueDate,
+      dueDate: activityRecord.dueDate ? dayjs(activityRecord.dueDate) : undefined,
     });
     setIsEditOpen(true);
   };
@@ -211,7 +213,7 @@ const ActivitiesContent = () => {
       await updateActivity(editingActivityId, {
         subject: values.subject,
         description: values.description,
-        dueDate: values.dueDate,
+        dueDate: values.dueDate ? (values.dueDate as Dayjs).format("YYYY-MM-DD") : undefined,
       });
       setIsEditOpen(false);
       setEditingActivityId(null);
@@ -253,7 +255,11 @@ const ActivitiesContent = () => {
           </Button>
           <Button
             size="small"
-            disabled={!canComplete}
+            disabled={
+              !canComplete ||
+              record.status === ActivityStatus.Completed ||
+              record.status === ActivityStatus.Cancelled
+            }
             onClick={() => onComplete(record.id)}
           >
             Complete
@@ -333,7 +339,11 @@ const ActivitiesContent = () => {
             label: "Create Activity",
             children: (
               <Form form={createForm} layout="vertical" onFinish={onCreate}>
-                <Form.Item name="createType" label="Type">
+                <Form.Item
+                  name="createType"
+                  label="Type"
+                  rules={[{ required: true, message: "Select activity type" }]}
+                >
                   <Select
                     disabled={!canCreate}
                     options={Object.entries(ActivityTypeLabels).map(
@@ -344,7 +354,11 @@ const ActivitiesContent = () => {
                     )}
                   />
                 </Form.Item>
-                <Form.Item name="createSubject" label="Subject">
+                <Form.Item
+                  name="createSubject"
+                  label="Subject"
+                  rules={[{ required: true, message: "Enter activity subject" }]}
+                >
                   <Input disabled={!canCreate} />
                 </Form.Item>
                 <Form.Item name="createDescription" label="Description">
@@ -361,8 +375,12 @@ const ActivitiesContent = () => {
                     )}
                   />
                 </Form.Item>
-                <Form.Item name="createDueDate" label="Due Date (ISO)">
-                  <Input disabled={!canCreate} />
+                <Form.Item
+                  name="createDueDate"
+                  label="Due Date"
+                  rules={[{ required: true, message: "Select due date" }]}
+                >
+                  <DatePicker disabled={!canCreate} style={{ width: "100%" }} />
                 </Form.Item>
                 <Form.Item name="createAssignedToId" label="Assigned User ID">
                   <Select
@@ -445,8 +463,8 @@ const ActivitiesContent = () => {
           <Form.Item name="description" label="Description">
             <Input.TextArea disabled={!canCreate} />
           </Form.Item>
-          <Form.Item name="dueDate" label="Due Date (ISO)">
-            <Input disabled={!canCreate} />
+          <Form.Item name="dueDate" label="Due Date">
+            <DatePicker disabled={!canCreate} style={{ width: "100%" }} />
           </Form.Item>
         </Form>
       </Modal>

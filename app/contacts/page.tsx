@@ -61,16 +61,6 @@ const ContactsContent = () => {
     load().catch(() => undefined);
   }, [load]);
 
-  const onSetPrimary = async (id: string) => {
-    try {
-      await setPrimaryContact(id);
-      await load();
-      message.success("Primary contact updated");
-    } catch (error) {
-      message.error(getErrorMessage(error, "Unable to set primary contact"));
-    }
-  };
-
   const onDelete = async (id: string) => {
     try {
       await deleteContact(id);
@@ -118,6 +108,7 @@ const ContactsContent = () => {
       email: contact.email,
       phoneNumber: contact.phoneNumber,
       position: contact.position,
+      isPrimaryContact: !!contact.isPrimaryContact,
     });
     setIsEditOpen(true);
   };
@@ -133,6 +124,9 @@ const ContactsContent = () => {
         phoneNumber: values.phoneNumber,
         position: values.position,
       });
+      if (values.isPrimaryContact && canSetPrimary) {
+        await setPrimaryContact(editingContactId);
+      }
       setIsEditOpen(false);
       setEditingContactId(null);
       await load();
@@ -154,13 +148,6 @@ const ContactsContent = () => {
         <Space>
           <Button size="small" onClick={() => openEdit(record)} disabled={!canCreate}>
             Edit
-          </Button>
-          <Button
-            size="small"
-            disabled={!canSetPrimary}
-            onClick={() => onSetPrimary(record.id)}
-          >
-            Set Primary
           </Button>
           <Button
             size="small"
@@ -253,6 +240,9 @@ const ContactsContent = () => {
           </Form.Item>
           <Form.Item name="position" label="Position">
             <Input disabled={!canCreate} />
+          </Form.Item>
+          <Form.Item name="isPrimaryContact" label="Primary Contact" valuePropName="checked">
+            <Switch disabled={!canSetPrimary} />
           </Form.Item>
         </Form>
       </Modal>

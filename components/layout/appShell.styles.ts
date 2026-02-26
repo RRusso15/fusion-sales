@@ -64,8 +64,9 @@ export const appShellStyles: Record<string, CSSProperties> = {
   logoutButton: {
     width: "100%",
     justifyContent: "flex-start",
-    color: "rgba(255,255,255,0.84)",
-    borderColor: "rgba(255,255,255,0.26)",
+    color: "#ffffff",
+    borderColor: "rgba(255,255,255,0.42)",
+    background: "transparent",
   },
   main: {
     marginLeft: 252,

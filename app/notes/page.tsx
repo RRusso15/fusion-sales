@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, Space, Table, message } from "antd";
+import { Button, Form, Input, Modal, Select, Space, Switch, Table, message } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
 import { getAxiosInstance } from "@/utils/axiosInstance";
 import { capabilityStyles } from "../capability.styles";
 import { getErrorMessage } from "@/utils/requestError";
+import { RelatedToTypeLabels, RelatedToTypeValue } from "@/constants/enums";
 
 interface NoteRow {
   id: string;
@@ -20,6 +21,9 @@ const NotesContent = () => {
   const axios = getAxiosInstance();
   const [rows, setRows] = useState<NoteRow[]>([]);
   const [isPending, setIsPending] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editForm] = Form.useForm<NoteRow>();
   const loadedRef = useRef(false);
 
   const load = useCallback(async () => {
@@ -43,9 +47,46 @@ const NotesContent = () => {
     load().catch(() => undefined);
   }, [load]);
 
+  const openEdit = (record: NoteRow) => {
+    setEditingNoteId(record.id);
+    editForm.setFieldsValue({
+      content: record.content,
+      relatedToType: record.relatedToType,
+      relatedToId: record.relatedToId,
+      isPrivate: record.isPrivate,
+    });
+    setIsEditOpen(true);
+  };
+
+  const onEditSave = async () => {
+    if (!editingNoteId) return;
+    try {
+      const values = await editForm.validateFields();
+      await axios.put(`/api/Notes/${editingNoteId}`, {
+        content: values.content,
+        relatedToType: values.relatedToType,
+        relatedToId: values.relatedToId,
+        isPrivate: values.isPrivate,
+      });
+      message.success("Note updated");
+      setIsEditOpen(false);
+      setEditingNoteId(null);
+      await load();
+    } catch (error) {
+      if ((error as { errorFields?: unknown })?.errorFields) return;
+      message.error(getErrorMessage(error, "Unable to update note"));
+    }
+  };
+
   const columns: TableProps<NoteRow>["columns"] = [
     { title: "Content", dataIndex: "content", key: "content" },
-    { title: "Related Type", dataIndex: "relatedToType", key: "relatedToType" },
+    {
+      title: "Related Type",
+      dataIndex: "relatedToType",
+      key: "relatedToType",
+      render: (value?: number) =>
+        (RelatedToTypeLabels as Record<number, string>)[value ?? 0] ?? "-",
+    },
     { title: "Private", dataIndex: "isPrivate", key: "isPrivate", render: (value?: boolean) => (value ? "Yes" : "No") },
     {
       title: "Actions",
@@ -54,19 +95,7 @@ const NotesContent = () => {
         <Space>
           <Button
             size="small"
-            onClick={async () => {
-              try {
-                await axios.put(`/api/Notes/${record.id}`, {
-                  content: record.content,
-                  relatedToType: record.relatedToType,
-                  relatedToId: record.relatedToId,
-                  isPrivate: record.isPrivate,
-                });
-                message.success("Note updated");
-              } catch (error) {
-                message.error(getErrorMessage(error, "Unable to update note"));
-              }
-            }}
+            onClick={() => openEdit(record)}
           >
             Update
           </Button>
@@ -99,6 +128,40 @@ const NotesContent = () => {
         columns={columns}
         pagination={{ pageSize: 10 }}
       />
+      <Modal
+        title="Edit Note"
+        open={isEditOpen}
+        onCancel={() => {
+          setIsEditOpen(false);
+          setEditingNoteId(null);
+        }}
+        onOk={onEditSave}
+      >
+        <Form form={editForm} layout="vertical">
+          <Form.Item
+            name="content"
+            label="Content"
+            rules={[{ required: true, message: "Enter note content" }]}
+          >
+            <Input.TextArea rows={4} />
+          </Form.Item>
+          <Form.Item name="relatedToType" label="Related Type">
+            <Select
+              allowClear
+              options={Object.entries(RelatedToTypeLabels).map(([value, label]) => ({
+                value: Number(value) as RelatedToTypeValue,
+                label,
+              }))}
+            />
+          </Form.Item>
+          <Form.Item name="relatedToId" label="Related ID">
+            <Input />
+          </Form.Item>
+          <Form.Item name="isPrivate" label="Private" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };

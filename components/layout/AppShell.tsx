@@ -143,6 +143,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
 
         <div style={appShellStyles.logoutWrap}>
           <Button
+            ghost
             style={appShellStyles.logoutButton}
             icon={<LogoutOutlined />}
             onClick={() => {
