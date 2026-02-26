@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, Card, Space, Table, message } from "antd";
+import { Button, Space, Table, message } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
 import { getAxiosInstance } from "@/utils/axiosInstance";
@@ -97,11 +97,6 @@ const DocumentsContent = () => {
 
   return (
     <div style={capabilityStyles.container}>
-      <Card style={capabilityStyles.header}>
-        <div style={capabilityStyles.actions}>
-          <Button onClick={() => load()}>Refresh</Button>
-        </div>
-      </Card>
       <Table<DocumentRow>
         rowKey="id"
         loading={isPending}
@@ -120,3 +115,4 @@ export default function DocumentsPage() {
     </AuthGuard>
   );
 }
+

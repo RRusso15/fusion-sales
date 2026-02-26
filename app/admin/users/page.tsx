@@ -125,7 +125,6 @@ const AdminUsersContent = () => {
       </Card>
 
       <Card title="Organisation Users">
-        <Button onClick={() => loadTenantUsers()}>Refresh Users</Button>
         <Table<(typeof users)[number]>
           style={{ marginTop: 12 }}
           rowKey="id"

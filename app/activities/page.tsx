@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Button,
-  Card,
+  Button,
   Collapse,
   Form,
   Input,
@@ -327,11 +326,6 @@ const ActivitiesContent = () => {
 
   return (
     <div style={capabilityStyles.container}>
-      <Card style={capabilityStyles.header}>
-        <div style={capabilityStyles.actions}>
-          <Button onClick={() => load()}>Refresh</Button>
-        </div>
-      </Card>
       <Collapse
         items={[
           {
@@ -479,3 +473,4 @@ export default function ActivitiesPage() {
     </AuthGuard>
   );
 }
+

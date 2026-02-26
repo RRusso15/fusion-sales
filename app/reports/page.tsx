@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, Card, Table, message } from "antd";
+import { Card, Table, message } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
 import { Roles } from "@/constants/roles";
@@ -67,12 +67,6 @@ const ReportsContent = () => {
 
   return (
     <div style={capabilityStyles.container}>
-      <Card style={capabilityStyles.header}>
-        <div style={capabilityStyles.actions}>
-          <Button onClick={() => load()}>Refresh</Button>
-        </div>
-      </Card>
-
       <Card title="Opportunities Report">
         <Table<ReportOpportunity>
           rowKey="id"

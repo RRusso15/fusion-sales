@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button, InputNumber, Space, Table, Tag, Typography } from "antd";
+import { InputNumber, Space, Table, Tag, Typography } from "antd";
 import type { TableProps } from "antd";
 import {
   ContractProvider,
@@ -67,9 +67,6 @@ const ExpiringContractsContent = () => {
           value={days}
           onChange={(value) => setDays(value ?? 90)}
         />
-        <Button onClick={() => fetchExpiringContracts(days)}>
-          Refresh
-        </Button>
       </Space>
       <Table<IContract>
         rowKey="id"
