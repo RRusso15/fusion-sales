@@ -36,19 +36,19 @@ import {
   useClientState,
 } from "@/providers/clientProvider";
 import {
-  DashboardProvider,
-  useDashboardActions,
-  useDashboardState,
-} from "@/providers/dashboardProvider";
+  UsersProvider,
+  useUsersActions,
+  useUsersState,
+} from "@/providers/usersProvider";
 
 const ContractsContent = () => {
   const { role, user } = useAuthState();
   const { contracts, isPending } = useContractState();
   const { clients } = useClientState();
-  const { salesPerformance } = useDashboardState();
+  const { users: tenantUsers } = useUsersState();
   const { fetchContracts, createContract, updateContract, createRenewal, completeRenewal, activateContract, cancelContract } = useContractActions();
   const { fetchClients } = useClientActions();
-  const { fetchSalesPerformance } = useDashboardActions();
+  const { fetchUsers } = useUsersActions();
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingContractId, setEditingContractId] = useState<string | null>(null);
@@ -63,9 +63,9 @@ const ContractsContent = () => {
     await Promise.all([
       fetchContracts({ pageNumber: 1, pageSize: 20 }),
       fetchClients({ pageNumber: 1, pageSize: 100 }),
-      fetchSalesPerformance(20),
+      fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
     ]);
-  }, [fetchContracts, fetchClients, fetchSalesPerformance]);
+  }, [fetchContracts, fetchClients, fetchUsers]);
 
   useEffect(() => {
     if (loadedRef.current) return;
@@ -204,21 +204,19 @@ const ContractsContent = () => {
   ];
 
   const ownerOptions = [
-    ...(user?.id
-      ? [
-          {
-            value: user.id,
-            label:
-              `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
-              user.email ||
-              "Current User",
-          },
-        ]
+    ...tenantUsers.map((entry) => ({
+      value: entry.id,
+      label: `${entry.fullName || `${entry.firstName} ${entry.lastName}`.trim() || entry.email} (${entry.id.slice(0, 8)})`,
+    })),
+    ...(user?.id && tenantUsers.every((entry) => entry.id !== user.id)
+      ? [{
+          value: user.id,
+          label:
+            `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
+            user.email ||
+            "Current User",
+        }]
       : []),
-    ...((Array.isArray(salesPerformance) ? salesPerformance : []).map((entry) => ({
-      value: entry.userId,
-      label: `${entry.userName} (${entry.userId.slice(0, 8)})`,
-    }))),
   ].filter(
     (candidate, index, self) =>
       self.findIndex((item) => item.value === candidate.value) === index
@@ -353,13 +351,13 @@ const ContractsContent = () => {
 export default function ContractsPage() {
   return (
     <AuthGuard>
-      <DashboardProvider>
+      <UsersProvider>
         <ClientProvider>
           <ContractProvider>
             <ContractsContent />
           </ContractProvider>
         </ClientProvider>
-      </DashboardProvider>
+      </UsersProvider>
     </AuthGuard>
   );
 }

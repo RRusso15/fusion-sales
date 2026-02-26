@@ -46,22 +46,22 @@ import {
   useContactState,
 } from "@/providers/contactProvider";
 import {
-  DashboardProvider,
-  useDashboardActions,
-  useDashboardState,
-} from "@/providers/dashboardProvider";
+  UsersProvider,
+  useUsersActions,
+  useUsersState,
+} from "@/providers/usersProvider";
 
 const OpportunitiesContent = () => {
   const { role, user } = useAuthState();
   const { opportunities, isPending } = useOpportunityState();
   const { clients } = useClientState();
   const { contacts } = useContactState();
-  const { salesPerformance } = useDashboardState();
+  const { users: tenantUsers } = useUsersState();
   const { fetchOpportunities, fetchMyOpportunities, createOpportunity, updateOpportunity, assignOpportunity, advanceStage, moveStage } =
     useOpportunityActions();
   const { fetchClients } = useClientActions();
   const { fetchContacts } = useContactActions();
-  const { fetchSalesPerformance } = useDashboardActions();
+  const { fetchUsers } = useUsersActions();
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingOpportunityId, setEditingOpportunityId] = useState<string | null>(null);
@@ -82,7 +82,7 @@ const OpportunitiesContent = () => {
         fetchOpportunities({ pageNumber: 1, pageSize: 20 }),
         fetchClients({ pageNumber: 1, pageSize: 100 }),
         fetchContacts({ pageNumber: 1, pageSize: 200 }),
-        fetchSalesPerformance(20),
+        fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
       ]);
       return;
     }
@@ -90,7 +90,7 @@ const OpportunitiesContent = () => {
       fetchMyOpportunities({ pageNumber: 1, pageSize: 20 }),
       fetchClients({ pageNumber: 1, pageSize: 100 }),
       fetchContacts({ pageNumber: 1, pageSize: 200 }),
-      fetchSalesPerformance(20),
+      fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
     ]);
   }, [
     canSeeAll,
@@ -98,7 +98,7 @@ const OpportunitiesContent = () => {
     fetchOpportunities,
     fetchClients,
     fetchContacts,
-    fetchSalesPerformance,
+    fetchUsers,
   ]);
 
   useEffect(() => {
@@ -248,19 +248,11 @@ const OpportunitiesContent = () => {
     },
   ];
 
-  const salesUsers = Array.isArray(salesPerformance)
-    ? salesPerformance
-    : [];
   const assignableUsers = [
-    ...(user?.id
-      ? [
-          {
-            userId: user.id,
-            userName: `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email || "Current User",
-          },
-        ]
-      : []),
-    ...salesUsers,
+    ...tenantUsers.map((entry) => ({
+      userId: entry.id,
+      userName: entry.fullName || `${entry.firstName} ${entry.lastName}`.trim() || entry.email,
+    })),
   ].filter(
     (candidate, index, self) =>
       candidate.userId &&
@@ -407,7 +399,7 @@ const OpportunitiesContent = () => {
 export default function OpportunitiesPage() {
   return (
     <AuthGuard>
-      <DashboardProvider>
+      <UsersProvider>
         <ClientProvider>
           <ContactProvider>
             <OpportunityProvider>
@@ -415,7 +407,7 @@ export default function OpportunitiesPage() {
             </OpportunityProvider>
           </ContactProvider>
         </ClientProvider>
-      </DashboardProvider>
+      </UsersProvider>
     </AuthGuard>
   );
 }

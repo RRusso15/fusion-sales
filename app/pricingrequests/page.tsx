@@ -39,17 +39,17 @@ import {
   useOpportunityState,
 } from "@/providers/opportunityProvider";
 import {
-  DashboardProvider,
-  useDashboardActions,
-  useDashboardState,
-} from "@/providers/dashboardProvider";
+  UsersProvider,
+  useUsersActions,
+  useUsersState,
+} from "@/providers/usersProvider";
 
 const PricingRequestsContent = () => {
   const { role, user } = useAuthState();
   const { pricingRequests, isPending } = usePricingState();
   const { clients } = useClientState();
   const { opportunities } = useOpportunityState();
-  const { salesPerformance } = useDashboardState();
+  const { users: tenantUsers } = useUsersState();
   const {
     fetchPendingRequests,
     fetchMyRequests,
@@ -60,7 +60,7 @@ const PricingRequestsContent = () => {
   } = usePricingActions();
   const { fetchClients } = useClientActions();
   const { fetchOpportunities, fetchMyOpportunities } = useOpportunityActions();
-  const { fetchSalesPerformance } = useDashboardActions();
+  const { fetchUsers } = useUsersActions();
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingPricingId, setEditingPricingId] = useState<string | null>(null);
@@ -78,7 +78,7 @@ const PricingRequestsContent = () => {
         fetchPendingRequests(),
         fetchClients({ pageNumber: 1, pageSize: 100 }),
         fetchOpportunities({ pageNumber: 1, pageSize: 100 }),
-        fetchSalesPerformance(20),
+        fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
       ]);
       return;
     }
@@ -86,7 +86,7 @@ const PricingRequestsContent = () => {
       fetchMyRequests(),
       fetchClients({ pageNumber: 1, pageSize: 100 }),
       fetchMyOpportunities({ pageNumber: 1, pageSize: 100 }),
-      fetchSalesPerformance(20),
+      fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
     ]);
   }, [
     fetchMyRequests,
@@ -95,7 +95,7 @@ const PricingRequestsContent = () => {
     fetchClients,
     fetchOpportunities,
     fetchMyOpportunities,
-    fetchSalesPerformance,
+    fetchUsers,
   ]);
 
   useEffect(() => {
@@ -210,18 +210,10 @@ const PricingRequestsContent = () => {
             disabled={!canAssign}
             style={{ minWidth: 220 }}
             options={[
-              ...(user?.id
-                ? [
-                    {
-                      value: user.id,
-                      label: `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email || "Current User",
-                    },
-                  ]
-                : []),
-              ...((Array.isArray(salesPerformance) ? salesPerformance : []).map((entry) => ({
-                value: entry.userId,
-                label: `${entry.userName} (${entry.userId.slice(0, 8)})`,
-              }))),
+              ...tenantUsers.map((entry) => ({
+                value: entry.id,
+                label: `${entry.fullName || `${entry.firstName} ${entry.lastName}`.trim() || entry.email} (${entry.id.slice(0, 8)})`,
+              })),
             ].filter(
               (candidate, index, self) =>
                 self.findIndex((item) => item.value === candidate.value) === index
@@ -287,18 +279,10 @@ const PricingRequestsContent = () => {
                   <Select
                     disabled={!canCreate}
                     options={[
-                      ...(user?.id
-                        ? [
-                            {
-                              value: user.id,
-                              label: `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email || "Current User",
-                            },
-                          ]
-                        : []),
-                      ...((Array.isArray(salesPerformance) ? salesPerformance : []).map((entry) => ({
-                        value: entry.userId,
-                        label: `${entry.userName} (${entry.userId.slice(0, 8)})`,
-                      }))),
+                      ...tenantUsers.map((entry) => ({
+                        value: entry.id,
+                        label: `${entry.fullName || `${entry.firstName} ${entry.lastName}`.trim() || entry.email} (${entry.id.slice(0, 8)})`,
+                      })),
                     ].filter(
                       (candidate, index, self) =>
                         self.findIndex((item) => item.value === candidate.value) === index
@@ -366,7 +350,7 @@ const PricingRequestsContent = () => {
 export default function PricingRequestsPage() {
   return (
     <AuthGuard>
-      <DashboardProvider>
+      <UsersProvider>
         <ClientProvider>
           <OpportunityProvider>
             <PricingProvider>
@@ -374,7 +358,7 @@ export default function PricingRequestsPage() {
             </PricingProvider>
           </OpportunityProvider>
         </ClientProvider>
-      </DashboardProvider>
+      </UsersProvider>
     </AuthGuard>
   );
 }

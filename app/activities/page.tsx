@@ -59,10 +59,10 @@ import {
   useContractState,
 } from "@/providers/contractProvider";
 import {
-  DashboardProvider,
-  useDashboardActions,
-  useDashboardState,
-} from "@/providers/dashboardProvider";
+  UsersProvider,
+  useUsersActions,
+  useUsersState,
+} from "@/providers/usersProvider";
 
 const ActivitiesContent = () => {
   const { role, user } = useAuthState();
@@ -71,14 +71,14 @@ const ActivitiesContent = () => {
   const { opportunities } = useOpportunityState();
   const { proposals } = useProposalState();
   const { contracts } = useContractState();
-  const { salesPerformance } = useDashboardState();
+  const { users: tenantUsers } = useUsersState();
   const { fetchActivities, fetchMyActivities, createActivity, updateActivity, cancelActivity, completeActivity, deleteActivity } =
     useActivityActions();
   const { fetchClients } = useClientActions();
   const { fetchOpportunities, fetchMyOpportunities } = useOpportunityActions();
   const { fetchProposals } = useProposalActions();
   const { fetchContracts } = useContractActions();
-  const { fetchSalesPerformance } = useDashboardActions();
+  const { fetchUsers } = useUsersActions();
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
@@ -103,7 +103,7 @@ const ActivitiesContent = () => {
         fetchOpportunities({ pageNumber: 1, pageSize: 100 }),
         fetchProposals({ pageNumber: 1, pageSize: 100 }),
         fetchContracts({ pageNumber: 1, pageSize: 100 }),
-        fetchSalesPerformance(20),
+        fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
       ]);
       return;
     }
@@ -113,7 +113,7 @@ const ActivitiesContent = () => {
       fetchMyOpportunities({ pageNumber: 1, pageSize: 100 }),
       fetchProposals({ pageNumber: 1, pageSize: 100 }),
       fetchContracts({ pageNumber: 1, pageSize: 100 }),
-      fetchSalesPerformance(20),
+      fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
     ]);
   }, [
     canViewAll,
@@ -124,7 +124,7 @@ const ActivitiesContent = () => {
     fetchMyOpportunities,
     fetchProposals,
     fetchContracts,
-    fetchSalesPerformance,
+    fetchUsers,
   ]);
 
   useEffect(() => {
@@ -273,21 +273,19 @@ const ActivitiesContent = () => {
   ];
 
   const assigneeOptions = [
-    ...(user?.id
-      ? [
-          {
-            value: user.id,
-            label:
-              `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
-              user.email ||
-              "Current User",
-          },
-        ]
+    ...tenantUsers.map((entry) => ({
+      value: entry.id,
+      label: `${entry.fullName || `${entry.firstName} ${entry.lastName}`.trim() || entry.email} (${entry.id.slice(0, 8)})`,
+    })),
+    ...(user?.id && tenantUsers.every((entry) => entry.id !== user.id)
+      ? [{
+          value: user.id,
+          label:
+            `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
+            user.email ||
+            "Current User",
+        }]
       : []),
-    ...((Array.isArray(salesPerformance) ? salesPerformance : []).map((entry) => ({
-      value: entry.userId,
-      label: `${entry.userName} (${entry.userId.slice(0, 8)})`,
-    }))),
   ].filter(
     (candidate, index, self) =>
       self.findIndex((item) => item.value === candidate.value) === index
@@ -465,7 +463,7 @@ const ActivitiesContent = () => {
 export default function ActivitiesPage() {
   return (
     <AuthGuard>
-      <DashboardProvider>
+      <UsersProvider>
         <ClientProvider>
           <OpportunityProvider>
             <ProposalProvider>
@@ -477,7 +475,7 @@ export default function ActivitiesPage() {
             </ProposalProvider>
           </OpportunityProvider>
         </ClientProvider>
-      </DashboardProvider>
+      </UsersProvider>
     </AuthGuard>
   );
 }
