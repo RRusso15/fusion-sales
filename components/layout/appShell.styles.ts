@@ -1,0 +1,108 @@
+import { CSSProperties } from "react";
+
+export const appShellStyles: Record<string, CSSProperties> = {
+  root: {
+    minHeight: "100vh",
+    background: "#f3f6f7",
+  },
+  sidebar: {
+    position: "fixed",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 252,
+    background: "#0f4d4f",
+    padding: "22px 16px 16px 16px",
+    display: "flex",
+    flexDirection: "column",
+    zIndex: 50,
+  },
+  brandRow: {
+    display: "flex",
+    justifyContent: "flex-start",
+    alignItems: "flex-start",
+    marginBottom: 22,
+  },
+  brandTitle: {
+    margin: 0,
+    color: "#ffffff",
+    fontWeight: 700,
+    fontSize: 22,
+    lineHeight: "28px",
+  },
+  brandSubTitle: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 12,
+    lineHeight: "16px",
+    marginTop: 4,
+  },
+  nav: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    marginTop: 8,
+  },
+  navItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    color: "rgba(255,255,255,0.80)",
+    padding: "10px 12px",
+    borderRadius: 12,
+    textDecoration: "none",
+    fontSize: 14,
+    fontWeight: 500,
+  },
+  navItemActive: {
+    background: "#4eaeb1",
+    color: "#ffffff",
+  },
+  logoutWrap: {
+    marginTop: "auto",
+    paddingTop: 18,
+  },
+  logoutButton: {
+    width: "100%",
+    justifyContent: "flex-start",
+    color: "rgba(255,255,255,0.84)",
+    borderColor: "rgba(255,255,255,0.26)",
+  },
+  main: {
+    marginLeft: 252,
+    minHeight: "100vh",
+    padding: 28,
+    background: "#f3f6f7",
+  },
+  headingWrap: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 18,
+  },
+  headingTextWrap: {
+    display: "flex",
+    flexDirection: "column",
+  },
+  headingLogoWrap: {
+    position: "relative",
+    width: 96,
+    height: 64,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  headingTitle: {
+    margin: 0,
+    fontSize: 32,
+    lineHeight: "40px",
+    color: "#18343c",
+    fontWeight: 700,
+  },
+  headingSubTitle: {
+    marginTop: 4,
+    color: "#6a7f86",
+    fontSize: 15,
+    lineHeight: "22px",
+  },
+};

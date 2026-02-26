@@ -1,6 +1,7 @@
-// API uses numeric enums for stages and sources. Keep numeric types to match API.
-export type OpportunityStage = 1 | 2 | 3 | 4 | 5 | 6; // see swagger (1..6)
-export type OpportunitySource = 1 | 2 | 3 | 4 | 5;
+import {
+  OpportunitySourceValue,
+  OpportunityStageValue,
+} from "@/constants/enums";
 
 export interface OpportunityDto {
   id: string;
@@ -14,9 +15,9 @@ export interface OpportunityDto {
   estimatedValue: number;
   currency?: string | null;
   probability: number;            // int
-  stage: OpportunityStage;
+  stage: OpportunityStageValue;
   stageName?: string | null;
-  source?: OpportunitySource;
+  source?: OpportunitySourceValue;
   expectedCloseDate?: string | null; // date-time
   actualCloseDate?: string | null;
   description?: string | null;

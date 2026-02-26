@@ -1,7 +1,8 @@
 "use client";
 
 import { Layout } from "antd";
-import { AuthGuard } from "@/components/guards/AuthGuard";
+import { RoleGuard } from "@/components/guards/RoleGuard";
+import { RoleGroups } from "@/constants/roles";
 
 export default function SalesLayout({
   children,
@@ -9,12 +10,12 @@ export default function SalesLayout({
   children: React.ReactNode;
 }) {
   return (
-    <AuthGuard requiredRole="SalesRep">
+    <RoleGuard allowedRoles={RoleGroups.salesArea}>
       <Layout style={{ minHeight: "100vh" }}>
         <Layout.Content style={{ padding: 40 }}>
           {children}
         </Layout.Content>
       </Layout>
-    </AuthGuard>
+    </RoleGuard>
   );
 }

@@ -4,9 +4,10 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Spin } from "antd";
 import { useAuthState } from "@/providers/authProvider";
+import { normalizeRole } from "@/constants/roles";
 
 export default function HomePage() {
-  const { isAuthenticated, user, isPending } = useAuthState();
+  const { isAuthenticated, user, role, isPending } = useAuthState();
   const router = useRouter();
 
   useEffect(() => {
@@ -17,14 +18,14 @@ export default function HomePage() {
       return;
     }
 
-    if (user?.roles?.includes("Admin")) {
-      router.replace("/admin");
-    } else if (user?.roles?.includes("SalesRep")) {
-      router.replace("/sales");
-    } else {
-      router.replace("/login");
+    const activeRole = role ?? normalizeRole(user?.roles?.[0]);
+    if (!activeRole) {
+      router.replace("/unauthorized");
+      return;
     }
-  }, [isAuthenticated, user, isPending, router]);
+
+    router.replace("/dashboard");
+  }, [isAuthenticated, user, role, isPending, router]);
 
   return <Spin fullscreen />;
 }

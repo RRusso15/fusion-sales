@@ -20,15 +20,18 @@ export const loginPending = createAction<Partial<IAuthStateContext>>(
 
 export const loginSuccess = createAction<
   Partial<IAuthStateContext>,
-  { user: IUser; token: string }
+  { user: IUser; token: string; role?: IUser["role"]; tenantId?: string }
 >(
   AuthActionEnum.loginSuccess,
-  ({ user, token }) => ({
+  ({ user, token, role, tenantId }) => ({
     isPending: false,
     isError: false,
     isAuthenticated: true,
+    currentUser: user,
     user,
     token,
+    role,
+    tenantId,
   })
 );
 
@@ -40,9 +43,14 @@ export const loginError = createAction<Partial<IAuthStateContext>>(
 export const logoutAction = createAction<Partial<IAuthStateContext>>(
   AuthActionEnum.logout,
   () => ({
+    isPending: false,
+    isError: false,
     isAuthenticated: false,
+    currentUser: undefined,
     user: undefined,
     token: undefined,
+    role: undefined,
+    tenantId: undefined,
   })
 );
 
@@ -53,15 +61,18 @@ export const registerPending = createAction<Partial<IAuthStateContext>>(
 
 export const registerSuccess = createAction<
   Partial<IAuthStateContext>,
-  { user: IUser; token: string }
+  { user: IUser; token: string; role?: IUser["role"]; tenantId?: string }
 >(
   AuthActionEnum.registerSuccess,
-  ({ user, token }) => ({
+  ({ user, token, role, tenantId }) => ({
     isPending: false,
     isError: false,
     isAuthenticated: true,
+    currentUser: user,
     user,
     token,
+    role,
+    tenantId,
   })
 );
 

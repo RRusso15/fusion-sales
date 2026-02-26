@@ -1,0 +1,11 @@
+@media (max-width: 768px) {
+  .auth-container {
+    width: 95% !important;
+    height: auto !important;
+    flex-direction: column !important;
+  }
+
+  .auth-container > div:first-child {
+    display: none !important; /* Hide image has to happen*/
+  }
+}
