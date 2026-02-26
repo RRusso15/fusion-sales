@@ -12,7 +12,6 @@ import {
   Space,
   Switch,
   Table,
-  Typography,
   message,
 } from "antd";
 import type { TableProps } from "antd";
@@ -31,7 +30,6 @@ import {
   useClientState,
 } from "@/providers/clientProvider";
 import type { IContact } from "@/providers/contactProvider/context";
-import { CapabilityNav } from "@/components/navigation/CapabilityNav";
 import { capabilityStyles } from "../capability.styles";
 import { getErrorMessage } from "@/utils/requestError";
 
@@ -181,10 +179,8 @@ const ContactsContent = () => {
   return (
     <div style={capabilityStyles.container}>
       <Card style={capabilityStyles.header}>
-        <Typography.Title level={3}>Contacts</Typography.Title>
         <div style={capabilityStyles.actions}>
           <Button onClick={() => load()}>Refresh</Button>
-          <CapabilityNav />
         </div>
       </Card>
       <Collapse

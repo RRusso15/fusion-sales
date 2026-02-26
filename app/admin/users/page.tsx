@@ -104,7 +104,6 @@ const AdminUsersContent = () => {
   return (
     <Space direction="vertical" size={16} style={{ width: "100%" }}>
       <Card>
-        <Typography.Title level={3}>Admin Users</Typography.Title>
         <Typography.Paragraph>
           Create users inside your organisation tenant.
         </Typography.Paragraph>

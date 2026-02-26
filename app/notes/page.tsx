@@ -1,11 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, Card, Space, Table, Typography, message } from "antd";
+import { Button, Card, Space, Table, message } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
 import { getAxiosInstance } from "@/utils/axiosInstance";
-import { CapabilityNav } from "@/components/navigation/CapabilityNav";
 import { capabilityStyles } from "../capability.styles";
 import { getErrorMessage } from "@/utils/requestError";
 
@@ -94,10 +93,8 @@ const NotesContent = () => {
   return (
     <div style={capabilityStyles.container}>
       <Card style={capabilityStyles.header}>
-        <Typography.Title level={3}>Notes</Typography.Title>
         <div style={capabilityStyles.actions}>
           <Button onClick={() => load()}>Refresh</Button>
-          <CapabilityNav />
         </div>
       </Card>
       <Table<NoteRow>

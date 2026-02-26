@@ -5,7 +5,6 @@ import { Button, Card, Col, Row, Typography } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
 import { useAuthActions, useAuthState } from "@/providers/authProvider";
 import { normalizeRole, Roles } from "@/constants/roles";
-import { CapabilityNav } from "@/components/navigation/CapabilityNav";
 import {
   DashboardProvider,
   useDashboardActions,
@@ -14,7 +13,7 @@ import {
 import { capabilityStyles } from "../capability.styles";
 
 const DashboardContent = () => {
-  const { currentUser, role, user } = useAuthState();
+  const { role, user } = useAuthState();
   const { logout } = useAuthActions();
   const { overview, salesPerformance } = useDashboardState();
   const {
@@ -56,11 +55,8 @@ const DashboardContent = () => {
   return (
     <div style={capabilityStyles.container}>
       <Card style={capabilityStyles.header}>
-        <Typography.Title level={3}>Dashboard</Typography.Title>
-        <Typography.Text>Welcome {currentUser?.firstName ?? "User"}</Typography.Text>
         <div style={capabilityStyles.actions}>
           <Button onClick={() => load()}>Refresh</Button>
-          <CapabilityNav />
           <Button danger onClick={logout}>
             Logout
           </Button>

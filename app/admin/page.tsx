@@ -146,10 +146,6 @@ const AdminWorkspace = () => {
   return (
     <div style={adminStyles.container}>
       <Card style={adminStyles.hero}>
-        <Typography.Title level={3}>Admin Control Center</Typography.Title>
-        <Typography.Text>
-          Welcome {currentUser?.firstName ?? "Admin"}.
-        </Typography.Text>
         <div style={adminStyles.tags}>
           <Tag>{activeRole}</Tag>
           <Tag>{tenantId ?? currentUser?.tenantId ?? "No Tenant"}</Tag>

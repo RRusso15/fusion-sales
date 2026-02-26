@@ -227,10 +227,6 @@ const SalesWorkspace = () => {
   return (
     <div style={salesStyles.container}>
       <Card style={salesStyles.hero}>
-        <Typography.Title level={3}>Sales Workspace</Typography.Title>
-        <Typography.Text>
-          Welcome {currentUser?.firstName ?? "User"}
-        </Typography.Text>
         <div style={salesStyles.metaRow}>
           <Tag>{activeRole ?? "Unknown Role"}</Tag>
           <Tag>{tenantId ?? currentUser?.tenantId ?? "No Tenant"}</Tag>

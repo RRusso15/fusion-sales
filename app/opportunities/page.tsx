@@ -13,7 +13,6 @@ import {
   Space,
   Table,
   Tag,
-  Typography,
   message,
 } from "antd";
 import type { TableProps } from "antd";
@@ -21,7 +20,6 @@ import { AuthGuard } from "@/components/guards/AuthGuard";
 import { useAuthState } from "@/providers/authProvider";
 import { normalizeRole } from "@/constants/roles";
 import { hasPermission, Permission } from "@/constants/permissions";
-import { CapabilityNav } from "@/components/navigation/CapabilityNav";
 import {
   OpportunityProvider,
   useOpportunityActions,
@@ -275,14 +273,8 @@ const OpportunitiesContent = () => {
   return (
     <div style={capabilityStyles.container}>
       <Card style={capabilityStyles.header}>
-        <Typography.Title level={3}>Opportunities</Typography.Title>
-        <Typography.Text>
-          Stage flow: Lead(1) to Qualified(2) to Proposal(3) to Negotiation(4) to
-          Closed Won(5) or Closed Lost(6).
-        </Typography.Text>
         <div style={capabilityStyles.actions}>
           <Button onClick={() => load()}>Refresh</Button>
-          <CapabilityNav />
         </div>
       </Card>
       <Collapse

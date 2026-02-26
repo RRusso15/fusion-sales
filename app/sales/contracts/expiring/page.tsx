@@ -59,7 +59,6 @@ const ExpiringContractsContent = () => {
 
   return (
     <div style={expiringStyles.container}>
-      <Typography.Title level={3}>Expiring Contracts</Typography.Title>
       <Space style={expiringStyles.controls}>
         <Typography.Text>Days Until Expiry</Typography.Text>
         <InputNumber

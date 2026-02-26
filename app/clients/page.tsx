@@ -12,7 +12,6 @@ import {
   Space,
   Table,
   Tag,
-  Typography,
   message,
 } from "antd";
 import type { TableProps } from "antd";
@@ -29,7 +28,6 @@ import { ClientTypeLabels } from "@/constants/enums";
 import type { ClientTypeValue } from "@/constants/enums";
 import type { IClient } from "@/providers/clientProvider/context";
 import { capabilityStyles } from "../capability.styles";
-import { CapabilityNav } from "@/components/navigation/CapabilityNav";
 import { getErrorMessage } from "@/utils/requestError";
 
 const ClientsContent = () => {
@@ -154,10 +152,8 @@ const ClientsContent = () => {
   return (
     <div style={capabilityStyles.container}>
       <Card style={capabilityStyles.header}>
-        <Typography.Title level={3}>Clients</Typography.Title>
         <div style={capabilityStyles.actions}>
           <Button onClick={() => load()}>Refresh</Button>
-          <CapabilityNav />
         </div>
       </Card>
       <Collapse

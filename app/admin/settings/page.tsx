@@ -58,7 +58,6 @@ export default function AdminSettingsPage() {
     <AuthGuard requiredRoles={[Roles.Admin]} redirectTo="/unauthorized">
       <Space direction="vertical" size={16} style={{ width: "100%" }}>
         <Card>
-          <Typography.Title level={3}>Admin Settings</Typography.Title>
           <Typography.Paragraph>
             Manage tenant context and organisation onboarding actions.
           </Typography.Paragraph>

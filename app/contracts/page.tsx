@@ -14,7 +14,6 @@ import {
   Switch,
   Table,
   Tag,
-  Typography,
   message,
 } from "antd";
 import type { TableProps } from "antd";
@@ -30,7 +29,6 @@ import {
 import { ContractStatus, ContractStatusLabels } from "@/constants/enums";
 import type { IContract } from "@/providers/contractProvider/context";
 import { capabilityStyles } from "../capability.styles";
-import { CapabilityNav } from "@/components/navigation/CapabilityNav";
 import { getErrorMessage } from "@/utils/requestError";
 import {
   ClientProvider,
@@ -229,10 +227,8 @@ const ContractsContent = () => {
   return (
     <div style={capabilityStyles.container}>
       <Card style={capabilityStyles.header}>
-        <Typography.Title level={3}>Contracts</Typography.Title>
         <div style={capabilityStyles.actions}>
           <Button onClick={() => load()}>Refresh</Button>
-          <CapabilityNav />
         </div>
       </Card>
       <Collapse
