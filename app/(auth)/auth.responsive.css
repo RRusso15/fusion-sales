@@ -6,6 +6,6 @@
   }
 
   .auth-container > div:first-child {
-    display: none !important; /* Hide image */
+    display: none !important; /* Hide image has to happen*/
   }
 }

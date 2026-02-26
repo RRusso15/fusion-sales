@@ -4,7 +4,7 @@ import { createContext } from "react";
  * Roles supported by frontend.
  * Backend may support more — we only care about these two.
  */
-export type UserRole = "Admin" | "SalesRep";
+export type UserRole = "Admin" | "SalesRep" | "SalesManager" | "BusinessDevelopmentManager";
 
 export interface IUser {
   id: string; // UUID from API
@@ -34,7 +34,7 @@ export interface IAuthActionContext {
 }
 
 export const INITIAL_STATE: IAuthStateContext = {
-  isPending: true,//change to flase
+  isPending: false,
   isError: false,
   isAuthenticated: false,
   user: undefined,

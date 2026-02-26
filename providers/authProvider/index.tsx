@@ -51,7 +51,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const data = response.data;
 
         const user: IUser = {
-          id: data.userId,
+          id: data.id,
           email: data.email,
           firstName: data.firstName,
           lastName: data.lastName,
@@ -86,7 +86,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const token = data.token;
 
       const user: IUser = {
-        id: data.userId,
+        id: data.id,
         email: data.email,
         firstName: data.firstName,
         lastName: data.lastName,
@@ -126,7 +126,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const token = data.token;
 
       const user: IUser = {
-        id: data.userId,
+        id: data.id,
         email: data.email,
         firstName: data.firstName,
         lastName: data.lastName,

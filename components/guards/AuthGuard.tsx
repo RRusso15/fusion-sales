@@ -6,19 +6,21 @@ import { useAuthState } from "@/providers/authProvider";
 
 interface AuthGuardProps {
   children: React.ReactNode;
-  requiredRole?: "Admin" | "SalesRep";
+  requiredRoles?: string[];
 }
 
 export const AuthGuard = ({
   children,
-  requiredRole,
+  requiredRoles,
 }: AuthGuardProps) => {
   const { isAuthenticated, user, isPending } = useAuthState();
   const router = useRouter();
 
   const hasRequiredRole = () => {
-    if (!requiredRole) return true;
-    return user?.roles?.includes(requiredRole);
+    if (!requiredRoles || requiredRoles.length === 0) return true;
+    return requiredRoles.some((role) =>
+      user?.roles?.includes(role)
+    );
   };
 
   useEffect(() => {
@@ -30,21 +32,13 @@ export const AuthGuard = ({
     }
 
     if (!hasRequiredRole()) {
-      router.replace("/");
+      router.replace("/"); // 
     }
-  }, [isAuthenticated, user, requiredRole, router, isPending]);
+  }, [isAuthenticated, user, requiredRoles, router, isPending]);
 
-  if (isPending) {
-    return <div>Loading...</div>;
-  }
-
-  if (!isAuthenticated) {
-    return null;
-  }
-
-  if (!hasRequiredRole()) {
-    return null;
-  }
+  if (isPending) return <div>Loading...</div>;
+  if (!isAuthenticated) return null;
+  if (!hasRequiredRole()) return null;
 
   return <>{children}</>;
 };
