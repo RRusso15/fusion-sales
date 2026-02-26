@@ -41,6 +41,8 @@ export const authStyles: Record<string, CSSProperties> = {
     alignItems: "center",
     paddingTop: 46,
     position: "relative",
+    overflowY: "auto",
+    paddingBottom: 96,
   },
 
   bottomBar: {

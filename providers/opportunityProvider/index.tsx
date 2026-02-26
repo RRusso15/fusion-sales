@@ -6,6 +6,7 @@ import {
   OpportunityStateContext,
   OpportunityActionContext,
   IOpportunity,
+  IOpportunityActionContext,
 } from "./context";
 import { OpportunityReducer } from "./reducer";
 import {
@@ -29,7 +30,9 @@ export const OpportunityProvider = ({
   );
   const axios = getAxiosInstance();
 
-  const fetchOpportunities = async (params?: any) => {
+  const fetchOpportunities: IOpportunityActionContext["fetchOpportunities"] = async (
+    params
+  ) => {
     dispatch(requestPending());
     try {
       const response = await axios.get("/api/Opportunities", {
@@ -48,7 +51,8 @@ export const OpportunityProvider = ({
     }
   };
 
-  const fetchMyOpportunities = async (params?: any) => {
+  const fetchMyOpportunities: IOpportunityActionContext["fetchMyOpportunities"] =
+    async (params) => {
     dispatch(requestPending());
     try {
       const response = await axios.get(
@@ -148,15 +152,31 @@ export const OpportunityProvider = ({
     }
   };
 
-  const moveStage = async (
-    id: string,
-    stage: number,
-    reason?: string
+  const moveStage: IOpportunityActionContext["moveStage"] = async (
+    id,
+    stage,
+    reason
   ) => {
     dispatch(requestPending());
     try {
       await axios.put(`/api/Opportunities/${id}/stage`, {
         stage,
+        reason,
+      });
+      dispatch(requestSuccess({}));
+    } catch (error) {
+      dispatch(requestError());
+      throw error;
+    }
+  };
+
+  const advanceStage: IOpportunityActionContext["advanceStage"] = async (
+    id,
+    reason
+  ) => {
+    dispatch(requestPending());
+    try {
+      await axios.put(`/api/Opportunities/${id}/advance-stage`, {
         reason,
       });
       dispatch(requestSuccess({}));
@@ -206,6 +226,7 @@ export const OpportunityProvider = ({
           createOpportunity,
           updateOpportunity,
           moveStage,
+          advanceStage,
           assignOpportunity,
           deleteOpportunity,
         }}

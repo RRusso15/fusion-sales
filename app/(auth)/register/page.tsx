@@ -1,26 +1,45 @@
 "use client";
 
-import { Form, Input, Button, Typography, message } from "antd";
+import { Form, Input, Button, Typography, message, Checkbox, Select } from "antd";
 import { useAuthActions, useAuthState } from "@/providers/authProvider";
 import { useRouter } from "next/navigation";
 import { authStyles } from "../auth.styles";
 import Link from "next/link";
 import Image from "next/image";
-import AuthLayout from "../layout";
+import { Roles } from "@/constants/roles";
+import type { UserRole } from "@/providers/authProvider/context";
+
+interface RegisterFormValues {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  phoneNumber?: string;
+  isAdminTenant?: boolean;
+  tenantName?: string;
+  tenantId?: string;
+  role?: Exclude<UserRole, "Admin">;
+}
 
 export default function RegisterPage() {
   const { register } = useAuthActions();
   const { isPending } = useAuthState();
   const router = useRouter();
+  const [form] = Form.useForm<RegisterFormValues>();
+  const isAdminTenant = Form.useWatch("isAdminTenant", form);
 
-  const onFinish = async (values: any) => {
+  const onFinish = async (values: RegisterFormValues) => {
     try {
-      await register(
-        values.firstName,
-        values.lastName,
-        values.email,
-        values.password
-      );
+      await register({
+        firstName: values.firstName,
+        lastName: values.lastName,
+        email: values.email,
+        password: values.password,
+        phoneNumber: values.phoneNumber,
+        tenantName: values.isAdminTenant ? values.tenantName : undefined,
+        tenantId: values.isAdminTenant ? undefined : values.tenantId,
+        role: values.isAdminTenant ? undefined : values.role ?? Roles.SalesRep,
+      });
       message.success("Registration successful");
       router.push("/");
     } catch {
@@ -50,7 +69,7 @@ export default function RegisterPage() {
       </Typography.Text>
 
       <div style={authStyles.formContainer}>
-        <Form layout="vertical" onFinish={onFinish}>
+        <Form<RegisterFormValues> form={form} layout="vertical" onFinish={onFinish}>
           <Form.Item
             style={authStyles.formItem}
             label="First Name"
@@ -82,9 +101,68 @@ export default function RegisterPage() {
             style={authStyles.formItem}
             label="Password"
             name="password"
-            rules={[{ required: true, message: "Please enter password" }]}
+            rules={[
+              { required: true, message: "Please enter password" },
+              { min: 6, message: "Password must be at least 6 characters" },
+            ]}
           >
             <Input.Password size="large" />
+          </Form.Item>
+
+          <Form.Item
+            style={authStyles.formItem}
+            label="Phone Number"
+            name="phoneNumber"
+          >
+            <Input size="large" />
+          </Form.Item>
+
+          <Form.Item
+            style={authStyles.formItem}
+            name="isAdminTenant"
+            valuePropName="checked"
+          >
+            <Checkbox>Create new organization as Admin</Checkbox>
+          </Form.Item>
+
+          <Form.Item
+            style={authStyles.formItem}
+            label="Tenant Name"
+            name="tenantName"
+            rules={
+              isAdminTenant
+                ? [{ required: true, message: "Please enter tenant name" }]
+                : []
+            }
+          >
+            <Input size="large" disabled={!isAdminTenant} />
+          </Form.Item>
+
+          <Form.Item
+            style={authStyles.formItem}
+            label="Tenant ID (join existing)"
+            name="tenantId"
+          >
+            <Input size="large" disabled={!!isAdminTenant} />
+          </Form.Item>
+
+          <Form.Item
+            style={authStyles.formItem}
+            label="Role"
+            name="role"
+            initialValue={Roles.SalesRep}
+          >
+            <Select
+              disabled={!!isAdminTenant}
+              options={[
+                { value: Roles.SalesRep, label: "SalesRep" },
+                { value: Roles.SalesManager, label: "SalesManager" },
+                {
+                  value: Roles.BusinessDevelopmentManager,
+                  label: "BusinessDevelopmentManager",
+                },
+              ]}
+            />
           </Form.Item>
 
           <Form.Item>

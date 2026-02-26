@@ -74,9 +74,10 @@ export const DashboardProvider = ({
         }
       );
 
+      const data = response.data;
       dispatch(
         requestSuccess({
-          salesPerformance: response.data,
+          salesPerformance: data.items ?? (Array.isArray(data) ? data : []),
         })
       );
     } catch (error) {

@@ -1,4 +1,4 @@
-export type ProposalStatus = 1 | 2 | 3 | 4; // Draft, Submitted, Rejected, Approved
+import { ProposalStatusValue } from "@/constants/enums";
 
 export interface ProposalLineItemDto {
   id: string;
@@ -17,7 +17,7 @@ export interface ProposalDto {
   currency?: string | null;
   validUntil?: string | null; // date
   totalAmount?: number;
-  status?: ProposalStatus;
+  status?: ProposalStatusValue;
   lineItems?: ProposalLineItemDto[];
   createdAt?: string;
   updatedAt?: string;

@@ -6,6 +6,7 @@ import {
   ContactStateContext,
   ContactActionContext,
   IContact,
+  IContactActionContext,
 } from "./context";
 import { ContactReducer } from "./reducer";
 import {
@@ -28,7 +29,7 @@ export const ContactProvider = ({
   /**
    * GET /api/contacts
    */
-  const fetchContacts = async (params?: any) => {
+  const fetchContacts: IContactActionContext["fetchContacts"] = async (params) => {
     dispatch(requestPending());
 
     try {

@@ -6,6 +6,7 @@ import {
   PricingStateContext,
   PricingActionContext,
   IPricingRequest,
+  IPricingActionContext,
 } from "./context";
 import { PricingReducer } from "./reducer";
 import {
@@ -28,7 +29,8 @@ export const PricingProvider = ({
 
   const axios = getAxiosInstance();
 
-  const fetchPricingRequests = async (params?: any) => {
+  const fetchPricingRequests: IPricingActionContext["fetchPricingRequests"] =
+    async (params) => {
     dispatch(requestPending());
     try {
       const response = await axios.get(
@@ -69,16 +71,19 @@ export const PricingProvider = ({
     }
   };
 
-  const fetchPendingRequests = async () => {
+  const fetchPendingRequests: IPricingActionContext["fetchPendingRequests"] =
+    async () => {
     dispatch(requestPending());
     try {
       const response = await axios.get(
         "/api/PricingRequests/pending"
       );
 
+      const data = response.data;
       dispatch(
         requestSuccess({
-          pricingRequests: response.data,
+          pricingRequests: data.items ?? data,
+          totalCount: data.totalCount ?? (Array.isArray(data) ? data.length : 0),
         })
       );
     } catch (error) {
@@ -87,16 +92,18 @@ export const PricingProvider = ({
     }
   };
 
-  const fetchMyRequests = async () => {
+  const fetchMyRequests: IPricingActionContext["fetchMyRequests"] = async () => {
     dispatch(requestPending());
     try {
       const response = await axios.get(
         "/api/PricingRequests/my-requests"
       );
 
+      const data = response.data;
       dispatch(
         requestSuccess({
-          pricingRequests: response.data,
+          pricingRequests: data.items ?? data,
+          totalCount: data.totalCount ?? (Array.isArray(data) ? data.length : 0),
         })
       );
     } catch (error) {

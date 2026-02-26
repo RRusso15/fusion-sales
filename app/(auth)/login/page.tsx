@@ -7,12 +7,17 @@ import { authStyles } from "../auth.styles";
 import Link from "next/link";
 import Image from "next/image";
 
+interface LoginFormValues {
+  email: string;
+  password: string;
+}
+
 export default function LoginPage() {
   const { login } = useAuthActions();
   const { isPending } = useAuthState();
   const router = useRouter();
 
-  const onFinish = async (values: any) => {
+  const onFinish = async (values: LoginFormValues) => {
     try {
       await login(values.email, values.password);
       message.success("Login successful");

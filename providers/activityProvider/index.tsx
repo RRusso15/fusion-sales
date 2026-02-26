@@ -6,6 +6,7 @@ import {
   ActivityStateContext,
   ActivityActionContext,
   IActivity,
+  IActivityActionContext,
 } from "./context";
 import { ActivityReducer } from "./reducer";
 import {
@@ -28,7 +29,9 @@ export const ActivityProvider = ({
 
   const axios = getAxiosInstance();
 
-  const fetchActivities = async (params?: any) => {
+  const fetchActivities: IActivityActionContext["fetchActivities"] = async (
+    params
+  ) => {
     dispatch(requestPending());
     try {
       const response = await axios.get("/api/Activities", {
@@ -66,7 +69,8 @@ export const ActivityProvider = ({
     }
   };
 
-  const fetchMyActivities = async (params?: any) => {
+  const fetchMyActivities: IActivityActionContext["fetchMyActivities"] =
+    async (params) => {
     dispatch(requestPending());
     try {
       const response = await axios.get(

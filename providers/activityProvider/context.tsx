@@ -1,15 +1,21 @@
 import { createContext } from "react";
+import {
+  ActivityStatusValue,
+  ActivityTypeValue,
+  PriorityValue,
+  RelatedToTypeValue,
+} from "@/constants/enums";
 
 export interface IActivity {
   id: string;
-  type: number;
+  type: ActivityTypeValue;
   subject: string;
   description?: string;
-  priority?: number;
-  status?: number;
+  priority?: PriorityValue;
+  status?: ActivityStatusValue;
   dueDate?: string;
   assignedToId?: string;
-  relatedToType?: number;
+  relatedToType?: RelatedToTypeValue;
   relatedToId?: string;
   duration?: number;
   location?: string;
@@ -27,9 +33,9 @@ export interface IActivityStateContext {
 export interface IActivityActionContext {
   fetchActivities: (params?: {
     assignedToId?: string;
-    type?: number;
-    status?: number;
-    relatedToType?: number;
+    type?: ActivityTypeValue;
+    status?: ActivityStatusValue;
+    relatedToType?: RelatedToTypeValue;
     relatedToId?: string;
     pageNumber?: number;
     pageSize?: number;
@@ -38,7 +44,7 @@ export interface IActivityActionContext {
   fetchActivityById: (id: string) => Promise<void>;
 
   fetchMyActivities: (params?: {
-    status?: number;
+    status?: ActivityStatusValue;
     pageNumber?: number;
     pageSize?: number;
   }) => Promise<void>;
@@ -66,5 +72,38 @@ export const INITIAL_STATE: IActivityStateContext = {
 export const ActivityStateContext =
   createContext<IActivityStateContext>(INITIAL_STATE);
 
+const defaultActionContext: IActivityActionContext = {
+  fetchActivities: async () => {
+    throw new Error("ActivityProvider not mounted");
+  },
+  fetchActivityById: async () => {
+    throw new Error("ActivityProvider not mounted");
+  },
+  fetchMyActivities: async () => {
+    throw new Error("ActivityProvider not mounted");
+  },
+  fetchUpcomingActivities: async () => {
+    throw new Error("ActivityProvider not mounted");
+  },
+  fetchOverdueActivities: async () => {
+    throw new Error("ActivityProvider not mounted");
+  },
+  createActivity: async () => {
+    throw new Error("ActivityProvider not mounted");
+  },
+  updateActivity: async () => {
+    throw new Error("ActivityProvider not mounted");
+  },
+  completeActivity: async () => {
+    throw new Error("ActivityProvider not mounted");
+  },
+  cancelActivity: async () => {
+    throw new Error("ActivityProvider not mounted");
+  },
+  deleteActivity: async () => {
+    throw new Error("ActivityProvider not mounted");
+  },
+};
+
 export const ActivityActionContext =
-  createContext<IActivityActionContext>(undefined as any);
+  createContext<IActivityActionContext>(defaultActionContext);

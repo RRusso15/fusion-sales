@@ -6,6 +6,7 @@ import {
   ClientStateContext,
   ClientActionContext,
   IClient,
+  IClientActionContext,
 } from "./context";
 import { ClientReducer } from "./reducer";
 import {
@@ -22,7 +23,7 @@ export const ClientProvider = ({ children }: { children: React.ReactNode }) => {
   const [state, dispatch] = useReducer(ClientReducer, INITIAL_STATE);
   const axios = getAxiosInstance();
 
-  const fetchClients = async (params?: any) => {
+  const fetchClients: IClientActionContext["fetchClients"] = async (params) => {
     dispatch(requestPending());
 
     try {

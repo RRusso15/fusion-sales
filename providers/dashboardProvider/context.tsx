@@ -10,7 +10,7 @@ export interface IDashboardOverview {
     pipelineValue: number;
   };
   pipeline: {
-    stages: any[];
+    stages: unknown[];
     weightedPipelineValue: number;
   };
   activities: {
@@ -27,14 +27,14 @@ export interface IDashboardOverview {
     thisMonth: number;
     thisQuarter: number;
     thisYear: number;
-    monthlyTrend: any[];
+    monthlyTrend: unknown[];
   };
 }
 
 /* ---------- Additional Dashboard Data ---------- */
 
 export interface IPipelineMetrics {
-  stages: any[];
+  stages: unknown[];
 }
 
 export interface ISalesPerformance {
@@ -45,8 +45,8 @@ export interface ISalesPerformance {
 }
 
 export interface IActivitiesSummary {
-  groupedByType: any[];
-  groupedByStatus: any[];
+  groupedByType: unknown[];
+  groupedByStatus: unknown[];
 }
 
 export interface IContractsExpiring {
@@ -85,5 +85,23 @@ export const INITIAL_STATE: IDashboardStateContext = {
 export const DashboardStateContext =
   createContext<IDashboardStateContext>(INITIAL_STATE);
 
+const defaultActionContext: IDashboardActionContext = {
+  fetchOverview: async () => {
+    throw new Error("DashboardProvider not mounted");
+  },
+  fetchPipelineMetrics: async () => {
+    throw new Error("DashboardProvider not mounted");
+  },
+  fetchSalesPerformance: async () => {
+    throw new Error("DashboardProvider not mounted");
+  },
+  fetchActivitiesSummary: async () => {
+    throw new Error("DashboardProvider not mounted");
+  },
+  fetchContractsExpiring: async () => {
+    throw new Error("DashboardProvider not mounted");
+  },
+};
+
 export const DashboardActionContext =
-  createContext<IDashboardActionContext>(undefined as any);
+  createContext<IDashboardActionContext>(defaultActionContext);

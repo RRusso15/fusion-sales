@@ -6,7 +6,7 @@ import {
   ProposalStateContext,
   ProposalActionContext,
   IProposal,
-  IProposalLineItem,
+  IProposalActionContext,
 } from "./context";
 import { ProposalReducer } from "./reducer";
 import {
@@ -28,7 +28,9 @@ export const ProposalProvider = ({
   );
   const axios = getAxiosInstance();
 
-  const fetchProposals = async (params?: any) => {
+  const fetchProposals: IProposalActionContext["fetchProposals"] = async (
+    params
+  ) => {
     dispatch(requestPending());
     try {
       const response = await axios.get("/api/Proposals", {
@@ -90,9 +92,9 @@ export const ProposalProvider = ({
     }
   };
 
-  const addLineItem = async (
-    proposalId: string,
-    data: Partial<IProposalLineItem>
+  const addLineItem: IProposalActionContext["addLineItem"] = async (
+    proposalId,
+    data
   ) => {
     dispatch(requestPending());
     try {
@@ -107,10 +109,10 @@ export const ProposalProvider = ({
     }
   };
 
-  const updateLineItem = async (
-    proposalId: string,
-    lineItemId: string,
-    data: Partial<IProposalLineItem>
+  const updateLineItem: IProposalActionContext["updateLineItem"] = async (
+    proposalId,
+    lineItemId,
+    data
   ) => {
     dispatch(requestPending());
     try {
@@ -125,9 +127,9 @@ export const ProposalProvider = ({
     }
   };
 
-  const deleteLineItem = async (
-    proposalId: string,
-    lineItemId: string
+  const deleteLineItem: IProposalActionContext["deleteLineItem"] = async (
+    proposalId,
+    lineItemId
   ) => {
     dispatch(requestPending());
     try {
@@ -141,7 +143,9 @@ export const ProposalProvider = ({
     }
   };
 
-  const submitProposal = async (id: string) => {
+  const submitProposal: IProposalActionContext["submitProposal"] = async (
+    id
+  ) => {
     dispatch(requestPending());
     try {
       await axios.put(`/api/Proposals/${id}/submit`);
@@ -152,7 +156,9 @@ export const ProposalProvider = ({
     }
   };
 
-  const approveProposal = async (id: string) => {
+  const approveProposal: IProposalActionContext["approveProposal"] = async (
+    id
+  ) => {
     dispatch(requestPending());
     try {
       await axios.put(`/api/Proposals/${id}/approve`);
@@ -163,9 +169,9 @@ export const ProposalProvider = ({
     }
   };
 
-  const rejectProposal = async (
-    id: string,
-    reason: string
+  const rejectProposal: IProposalActionContext["rejectProposal"] = async (
+    id,
+    reason
   ) => {
     dispatch(requestPending());
     try {

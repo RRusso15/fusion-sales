@@ -48,5 +48,29 @@ export const INITIAL_STATE: IContactStateContext = {
 export const ContactStateContext =
   createContext<IContactStateContext>(INITIAL_STATE);
 
+const defaultActionContext: IContactActionContext = {
+  fetchContacts: async () => {
+    throw new Error("ContactProvider not mounted");
+  },
+  fetchContactsByClient: async () => {
+    throw new Error("ContactProvider not mounted");
+  },
+  fetchContactById: async () => {
+    throw new Error("ContactProvider not mounted");
+  },
+  createContact: async () => {
+    throw new Error("ContactProvider not mounted");
+  },
+  updateContact: async () => {
+    throw new Error("ContactProvider not mounted");
+  },
+  setPrimaryContact: async () => {
+    throw new Error("ContactProvider not mounted");
+  },
+  deleteContact: async () => {
+    throw new Error("ContactProvider not mounted");
+  },
+};
+
 export const ContactActionContext =
-  createContext<IContactActionContext>(undefined as any);
+  createContext<IContactActionContext>(defaultActionContext);

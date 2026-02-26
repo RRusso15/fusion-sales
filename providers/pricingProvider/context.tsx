@@ -1,4 +1,5 @@
 import { createContext } from "react";
+import { PricingRequestStatusValue, PriorityValue } from "@/constants/enums";
 
 export interface IPricingRequest {
   id: string;
@@ -8,8 +9,8 @@ export interface IPricingRequest {
   opportunityId?: string;
   requestedById: string;
   assignedToId?: string;
-  priority?: number;
-  status?: number;
+  priority?: PriorityValue;
+  status?: PricingRequestStatusValue;
   requiredByDate?: string;
   createdAt?: string;
 }
@@ -24,8 +25,8 @@ export interface IPricingStateContext {
 
 export interface IPricingActionContext {
   fetchPricingRequests: (params?: {
-    status?: number;
-    priority?: number;
+    status?: PricingRequestStatusValue;
+    priority?: PriorityValue;
     assignedToId?: string;
     pageNumber?: number;
     pageSize?: number;
@@ -64,5 +65,32 @@ export const INITIAL_STATE: IPricingStateContext = {
 export const PricingStateContext =
   createContext<IPricingStateContext>(INITIAL_STATE);
 
+const defaultActionContext: IPricingActionContext = {
+  fetchPricingRequests: async () => {
+    throw new Error("PricingProvider not mounted");
+  },
+  fetchPricingRequestById: async () => {
+    throw new Error("PricingProvider not mounted");
+  },
+  fetchPendingRequests: async () => {
+    throw new Error("PricingProvider not mounted");
+  },
+  fetchMyRequests: async () => {
+    throw new Error("PricingProvider not mounted");
+  },
+  createPricingRequest: async () => {
+    throw new Error("PricingProvider not mounted");
+  },
+  updatePricingRequest: async () => {
+    throw new Error("PricingProvider not mounted");
+  },
+  assignPricingRequest: async () => {
+    throw new Error("PricingProvider not mounted");
+  },
+  completePricingRequest: async () => {
+    throw new Error("PricingProvider not mounted");
+  },
+};
+
 export const PricingActionContext =
-  createContext<IPricingActionContext>(undefined as any);
+  createContext<IPricingActionContext>(defaultActionContext);

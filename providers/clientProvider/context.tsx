@@ -1,10 +1,11 @@
 import { createContext } from "react";
+import { ClientTypeValue } from "@/constants/enums";
 
 export interface IClient {
   id: string;
   name: string;
   industry?: string;
-  clientType?: number;
+  clientType?: ClientTypeValue;
   website?: string;
   billingAddress?: string;
   taxNumber?: string;
@@ -33,7 +34,7 @@ export interface IClientActionContext {
     pageSize?: number;
     searchTerm?: string;
     industry?: string;
-    clientType?: number;
+    clientType?: ClientTypeValue;
     isActive?: boolean;
   }) => Promise<void>;
 
@@ -57,5 +58,26 @@ export const INITIAL_STATE: IClientStateContext = {
 export const ClientStateContext =
   createContext<IClientStateContext>(INITIAL_STATE);
 
+const defaultActionContext: IClientActionContext = {
+  fetchClients: async () => {
+    throw new Error("ClientProvider not mounted");
+  },
+  fetchClientById: async () => {
+    throw new Error("ClientProvider not mounted");
+  },
+  fetchClientStats: async () => {
+    throw new Error("ClientProvider not mounted");
+  },
+  createClient: async () => {
+    throw new Error("ClientProvider not mounted");
+  },
+  updateClient: async () => {
+    throw new Error("ClientProvider not mounted");
+  },
+  deleteClient: async () => {
+    throw new Error("ClientProvider not mounted");
+  },
+};
+
 export const ClientActionContext =
-  createContext<IClientActionContext>(undefined as any);
+  createContext<IClientActionContext>(defaultActionContext);

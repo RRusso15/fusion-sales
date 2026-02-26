@@ -1,4 +1,5 @@
 import { createContext } from "react";
+import { ProposalStatusValue } from "@/constants/enums";
 
 export interface IProposalLineItem {
   id?: string;
@@ -19,7 +20,7 @@ export interface IProposal {
   description?: string;
   currency: string;
   validUntil?: string;
-  status?: number;
+  status?: ProposalStatusValue;
   subtotal?: number;
   taxTotal?: number;
   grandTotal?: number;
@@ -38,7 +39,7 @@ export interface IProposalActionContext {
   fetchProposals: (params?: {
     clientId?: string;
     opportunityId?: string;
-    status?: number;
+    status?: ProposalStatusValue;
     pageNumber?: number;
     pageSize?: number;
   }) => Promise<void>;
@@ -82,5 +83,41 @@ export const INITIAL_STATE: IProposalStateContext = {
 export const ProposalStateContext =
   createContext<IProposalStateContext>(INITIAL_STATE);
 
+const defaultActionContext: IProposalActionContext = {
+  fetchProposals: async () => {
+    throw new Error("ProposalProvider not mounted");
+  },
+  fetchProposalById: async () => {
+    throw new Error("ProposalProvider not mounted");
+  },
+  createProposal: async () => {
+    throw new Error("ProposalProvider not mounted");
+  },
+  updateProposal: async () => {
+    throw new Error("ProposalProvider not mounted");
+  },
+  addLineItem: async () => {
+    throw new Error("ProposalProvider not mounted");
+  },
+  updateLineItem: async () => {
+    throw new Error("ProposalProvider not mounted");
+  },
+  deleteLineItem: async () => {
+    throw new Error("ProposalProvider not mounted");
+  },
+  submitProposal: async () => {
+    throw new Error("ProposalProvider not mounted");
+  },
+  approveProposal: async () => {
+    throw new Error("ProposalProvider not mounted");
+  },
+  rejectProposal: async () => {
+    throw new Error("ProposalProvider not mounted");
+  },
+  deleteProposal: async () => {
+    throw new Error("ProposalProvider not mounted");
+  },
+};
+
 export const ProposalActionContext =
-  createContext<IProposalActionContext>(undefined as any);
+  createContext<IProposalActionContext>(defaultActionContext);

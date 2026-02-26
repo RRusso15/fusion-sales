@@ -1,4 +1,8 @@
 import { createContext } from "react";
+import {
+  OpportunitySourceValue,
+  OpportunityStageValue,
+} from "@/constants/enums";
 
 export interface IOpportunity {
   id: string;
@@ -7,8 +11,8 @@ export interface IOpportunity {
   contactId?: string;
   estimatedValue?: number;
   currency?: string;
-  stage?: number;
-  source?: number;
+  stage?: OpportunityStageValue;
+  source?: OpportunitySourceValue;
   probability?: number;
   expectedCloseDate?: string;
   description?: string;
@@ -52,7 +56,7 @@ export interface IOpportunityStateContext {
 export interface IOpportunityActionContext {
   fetchOpportunities: (params?: {
     clientId?: string;
-    stage?: number;
+    stage?: OpportunityStageValue;
     ownerId?: string;
     searchTerm?: string;
     pageNumber?: number;
@@ -60,7 +64,7 @@ export interface IOpportunityActionContext {
   }) => Promise<void>;
 
   fetchMyOpportunities: (params?: {
-    stage?: number;
+    stage?: OpportunityStageValue;
     pageNumber?: number;
     pageSize?: number;
   }) => Promise<void>;
@@ -73,7 +77,12 @@ export interface IOpportunityActionContext {
   createOpportunity: (data: Partial<IOpportunity>) => Promise<void>;
   updateOpportunity: (id: string, data: Partial<IOpportunity>) => Promise<void>;
 
-  moveStage: (id: string, stage: number, reason?: string) => Promise<void>;
+  moveStage: (
+    id: string,
+    stage: OpportunityStageValue,
+    reason?: string
+  ) => Promise<void>;
+  advanceStage: (id: string, reason?: string) => Promise<void>;
   assignOpportunity: (id: string, userId: string) => Promise<void>;
 
   deleteOpportunity: (id: string) => Promise<void>;
@@ -92,5 +101,41 @@ export const INITIAL_STATE: IOpportunityStateContext = {
 export const OpportunityStateContext =
   createContext<IOpportunityStateContext>(INITIAL_STATE);
 
+const defaultActionContext: IOpportunityActionContext = {
+  fetchOpportunities: async () => {
+    throw new Error("OpportunityProvider not mounted");
+  },
+  fetchMyOpportunities: async () => {
+    throw new Error("OpportunityProvider not mounted");
+  },
+  fetchPipeline: async () => {
+    throw new Error("OpportunityProvider not mounted");
+  },
+  fetchOpportunityById: async () => {
+    throw new Error("OpportunityProvider not mounted");
+  },
+  fetchStageHistory: async () => {
+    throw new Error("OpportunityProvider not mounted");
+  },
+  createOpportunity: async () => {
+    throw new Error("OpportunityProvider not mounted");
+  },
+  updateOpportunity: async () => {
+    throw new Error("OpportunityProvider not mounted");
+  },
+  moveStage: async () => {
+    throw new Error("OpportunityProvider not mounted");
+  },
+  advanceStage: async () => {
+    throw new Error("OpportunityProvider not mounted");
+  },
+  assignOpportunity: async () => {
+    throw new Error("OpportunityProvider not mounted");
+  },
+  deleteOpportunity: async () => {
+    throw new Error("OpportunityProvider not mounted");
+  },
+};
+
 export const OpportunityActionContext =
-  createContext<IOpportunityActionContext>(undefined as any);
+  createContext<IOpportunityActionContext>(defaultActionContext);

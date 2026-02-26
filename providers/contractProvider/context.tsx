@@ -1,4 +1,5 @@
 import { createContext } from "react";
+import { ContractStatusValue } from "@/constants/enums";
 
 export interface IContractRenewal {
   id?: string;
@@ -22,7 +23,7 @@ export interface IContract {
   renewalNoticePeriod?: number;
   autoRenew?: boolean;
   terms?: string;
-  status?: number;
+  status?: ContractStatusValue;
 
   // Computed fields from backend
   isExpiringSoon?: boolean;
@@ -40,7 +41,7 @@ export interface IContractStateContext {
 export interface IContractActionContext {
   fetchContracts: (params?: {
     clientId?: string;
-    status?: number;
+    status?: ContractStatusValue;
     pageNumber?: number;
     pageSize?: number;
   }) => Promise<void>;
@@ -76,5 +77,41 @@ export const INITIAL_STATE: IContractStateContext = {
 export const ContractStateContext =
   createContext<IContractStateContext>(INITIAL_STATE);
 
+const defaultActionContext: IContractActionContext = {
+  fetchContracts: async () => {
+    throw new Error("ContractProvider not mounted");
+  },
+  fetchContractById: async () => {
+    throw new Error("ContractProvider not mounted");
+  },
+  fetchExpiringContracts: async () => {
+    throw new Error("ContractProvider not mounted");
+  },
+  fetchContractsByClient: async () => {
+    throw new Error("ContractProvider not mounted");
+  },
+  createContract: async () => {
+    throw new Error("ContractProvider not mounted");
+  },
+  updateContract: async () => {
+    throw new Error("ContractProvider not mounted");
+  },
+  activateContract: async () => {
+    throw new Error("ContractProvider not mounted");
+  },
+  cancelContract: async () => {
+    throw new Error("ContractProvider not mounted");
+  },
+  deleteContract: async () => {
+    throw new Error("ContractProvider not mounted");
+  },
+  createRenewal: async () => {
+    throw new Error("ContractProvider not mounted");
+  },
+  completeRenewal: async () => {
+    throw new Error("ContractProvider not mounted");
+  },
+};
+
 export const ContractActionContext =
-  createContext<IContractActionContext>(undefined as any);
+  createContext<IContractActionContext>(defaultActionContext);

@@ -5,8 +5,7 @@ import {
   INITIAL_STATE,
   ContractStateContext,
   ContractActionContext,
-  IContract,
-  IContractRenewal,
+  IContractActionContext,
 } from "./context";
 import { ContractReducer } from "./reducer";
 import {
@@ -29,7 +28,9 @@ export const ContractProvider = ({
 
   const axios = getAxiosInstance();
 
-  const fetchContracts = async (params?: any) => {
+  const fetchContracts: IContractActionContext["fetchContracts"] = async (
+    params
+  ) => {
     dispatch(requestPending());
     try {
       const response = await axios.get("/api/Contracts", {
@@ -67,9 +68,8 @@ export const ContractProvider = ({
     }
   };
 
-  const fetchExpiringContracts = async (
-    daysUntilExpiry: number = 90
-  ) => {
+  const fetchExpiringContracts: IContractActionContext["fetchExpiringContracts"] =
+    async (daysUntilExpiry = 90) => {
     dispatch(requestPending());
     try {
       const response = await axios.get(
@@ -79,9 +79,11 @@ export const ContractProvider = ({
         }
       );
 
+      const data = response.data;
       dispatch(
         requestSuccess({
-          contracts: response.data,
+          contracts: data.items ?? data,
+          totalCount: data.totalCount ?? (Array.isArray(data) ? data.length : 0),
         })
       );
     } catch (error) {
@@ -90,15 +92,18 @@ export const ContractProvider = ({
     }
   };
 
-  const fetchContractsByClient = async (clientId: string) => {
+  const fetchContractsByClient: IContractActionContext["fetchContractsByClient"] =
+    async (clientId) => {
     dispatch(requestPending());
     try {
       const response = await axios.get(
         `/api/Contracts/client/${clientId}`
       );
+      const data = response.data;
       dispatch(
         requestSuccess({
-          contracts: response.data,
+          contracts: data.items ?? data,
+          totalCount: data.totalCount ?? (Array.isArray(data) ? data.length : 0),
         })
       );
     } catch (error) {
@@ -107,8 +112,8 @@ export const ContractProvider = ({
     }
   };
 
-  const createContract = async (
-    data: Partial<IContract>
+  const createContract: IContractActionContext["createContract"] = async (
+    data
   ) => {
     dispatch(requestPending());
     try {
@@ -120,9 +125,9 @@ export const ContractProvider = ({
     }
   };
 
-  const updateContract = async (
-    id: string,
-    data: Partial<IContract>
+  const updateContract: IContractActionContext["updateContract"] = async (
+    id,
+    data
   ) => {
     dispatch(requestPending());
     try {
@@ -134,7 +139,9 @@ export const ContractProvider = ({
     }
   };
 
-  const activateContract = async (id: string) => {
+  const activateContract: IContractActionContext["activateContract"] = async (
+    id
+  ) => {
     dispatch(requestPending());
     try {
       await axios.put(
@@ -147,7 +154,7 @@ export const ContractProvider = ({
     }
   };
 
-  const cancelContract = async (id: string) => {
+  const cancelContract: IContractActionContext["cancelContract"] = async (id) => {
     dispatch(requestPending());
     try {
       await axios.put(`/api/Contracts/${id}/cancel`);
@@ -158,7 +165,7 @@ export const ContractProvider = ({
     }
   };
 
-  const deleteContract = async (id: string) => {
+  const deleteContract: IContractActionContext["deleteContract"] = async (id) => {
     dispatch(requestPending());
     try {
       await axios.delete(`/api/Contracts/${id}`);
@@ -169,9 +176,9 @@ export const ContractProvider = ({
     }
   };
 
-  const createRenewal = async (
-    contractId: string,
-    data: Partial<IContractRenewal>
+  const createRenewal: IContractActionContext["createRenewal"] = async (
+    contractId,
+    data
   ) => {
     dispatch(requestPending());
     try {
@@ -186,8 +193,8 @@ export const ContractProvider = ({
     }
   };
 
-  const completeRenewal = async (
-    renewalId: string
+  const completeRenewal: IContractActionContext["completeRenewal"] = async (
+    renewalId
   ) => {
     dispatch(requestPending());
     try {
