@@ -1,7 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, Collapse, Form, Input, Select, Space, Table, Upload, message } from "antd";
+import {
+  Alert,
+  Button,
+  Collapse,
+  Form,
+  Input,
+  InputNumber,
+  Modal,
+  Select,
+  Space,
+  Table,
+  Upload,
+  message,
+} from "antd";
 import { UploadOutlined } from "@ant-design/icons";
 import type { TableProps } from "antd";
 import type { UploadFile } from "antd/es/upload/interface";
@@ -14,6 +27,8 @@ import { capabilityStyles } from "../capability.styles";
 import { getErrorMessage } from "@/utils/requestError";
 import {
   DocumentCategoryLabels,
+  OpportunitySource,
+  OpportunityStage,
   RelatedToTypeLabels,
   DocumentCategoryValue,
   RelatedToTypeValue,
@@ -37,6 +52,99 @@ interface UploadDocumentForm {
   description?: string;
 }
 
+interface AIExtractedLeadFields {
+  clientName?: string | null;
+  industry?: string | null;
+  website?: string | null;
+  contactFirstName?: string | null;
+  contactLastName?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  contactPosition?: string | null;
+  opportunityTitle?: string | null;
+  estimatedValue?: number | null;
+  source?: "Inbound" | "Outbound" | "Referral" | "Partner" | "RFP" | null;
+}
+
+interface DocumentRecommendation {
+  documentType?: "lead" | "contract" | "invoice" | "proposal" | "report" | "other";
+  recommendedAction?: "create_lead_opportunity" | "none";
+  confidence?: number;
+  reasoning?: string;
+  extracted?: AIExtractedLeadFields;
+}
+
+interface LeadExecutionForm {
+  clientName: string;
+  industry?: string;
+  website?: string;
+  contactFirstName?: string;
+  contactLastName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  contactPosition?: string;
+  opportunityTitle?: string;
+  estimatedValue?: number;
+  source?: "Inbound" | "Outbound" | "Referral" | "Partner" | "RFP";
+}
+
+interface RelatedClientOption {
+  id: string;
+  name?: string | null;
+}
+
+const sourceToEnum: Record<NonNullable<LeadExecutionForm["source"]>, number> = {
+  Inbound: OpportunitySource.Inbound,
+  Outbound: OpportunitySource.Outbound,
+  Referral: OpportunitySource.Referral,
+  Partner: OpportunitySource.Partner,
+  RFP: OpportunitySource.Rfp,
+};
+
+const splitName = (value?: string) => {
+  if (!value) return { firstName: "", lastName: "" };
+  const trimmed = value.trim();
+  if (!trimmed) return { firstName: "", lastName: "" };
+  const parts = trimmed.split(/\s+/);
+  return {
+    firstName: parts[0] ?? "",
+    lastName: parts.slice(1).join(" "),
+  };
+};
+
+const getResponseItems = <T,>(value: unknown): T[] => {
+  if (Array.isArray(value)) return value as T[];
+  if (value && typeof value === "object" && "items" in value) {
+    const withItems = value as { items?: unknown };
+    if (Array.isArray(withItems.items)) return withItems.items as T[];
+  }
+  return [];
+};
+
+const isLikelyTextContent = (fileName: string, contentType?: string) => {
+  if (contentType?.startsWith("text/")) return true;
+  const lower = fileName.toLowerCase();
+  return (
+    lower.endsWith(".txt") ||
+    lower.endsWith(".md") ||
+    lower.endsWith(".csv") ||
+    lower.endsWith(".json") ||
+    lower.endsWith(".xml") ||
+    lower.endsWith(".html") ||
+    lower.endsWith(".htm")
+  );
+};
+
+const decodeFileNameFromHeader = (
+  contentDisposition: string | undefined,
+  fallbackName: string
+) => {
+  const filenameFromHeader = contentDisposition?.match(
+    /filename\*=UTF-8''([^;]+)|filename="?([^"]+)"?/i
+  );
+  return decodeURIComponent(filenameFromHeader?.[1] || filenameFromHeader?.[2] || fallbackName);
+};
+
 const DocumentsContent = () => {
   const axios = getAxiosInstance();
   const { role, user } = useAuthState();
@@ -45,10 +153,22 @@ const DocumentsContent = () => {
   const [uploading, setUploading] = useState(false);
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [form] = Form.useForm<UploadDocumentForm>();
+  const [executionForm] = Form.useForm<LeadExecutionForm>();
+  const relatedToTypeValue = Form.useWatch("relatedToType", form);
   const loadedRef = useRef(false);
+  const [relatedClients, setRelatedClients] = useState<RelatedClientOption[]>([]);
+  const [relatedClientsLoading, setRelatedClientsLoading] = useState(false);
+  const [recommendationByDocumentId, setRecommendationByDocumentId] = useState<
+    Record<string, DocumentRecommendation>
+  >({});
+  const [selectedRecommendationDoc, setSelectedRecommendationDoc] = useState<DocumentRow | null>(null);
+  const [isRecommendationOpen, setIsRecommendationOpen] = useState(false);
+  const [analyzingDocumentId, setAnalyzingDocumentId] = useState<string | null>(null);
+  const [applyingDocumentId, setApplyingDocumentId] = useState<string | null>(null);
 
   const activeRole = role ?? normalizeRole(user?.roles?.[0]);
   const canDelete = hasPermission(activeRole, Permission.deleteDocument);
+  const canCreateOpportunity = hasPermission(activeRole, Permission.createOpportunity);
 
   const load = useCallback(async () => {
     setIsPending(true);
@@ -65,11 +185,80 @@ const DocumentsContent = () => {
     }
   }, [axios]);
 
+  const loadRelatedClients = useCallback(async () => {
+    setRelatedClientsLoading(true);
+    try {
+      const response = await axios.get("/api/Clients", {
+        params: { pageNumber: 1, pageSize: 200, isActive: true },
+      });
+      setRelatedClients(getResponseItems<RelatedClientOption>(response.data));
+    } catch {
+      setRelatedClients([]);
+    } finally {
+      setRelatedClientsLoading(false);
+    }
+  }, [axios]);
+
+  const downloadDocumentBlob = useCallback(
+    async (record: DocumentRow) => {
+      const response = await axios.get(`/api/Documents/${record.id}/download`, {
+        responseType: "blob",
+      });
+      const contentDisposition = response.headers["content-disposition"] as string | undefined;
+      const fallbackName = record.fileName || record.name || `document-${record.id}`;
+      const fileName = decodeFileNameFromHeader(contentDisposition, fallbackName);
+      const contentType = (response.headers["content-type"] as string | undefined) ?? "";
+      return {
+        blob: response.data as Blob,
+        fileName,
+        contentType,
+      };
+    },
+    [axios]
+  );
+
+  const extractDocumentText = async (
+    blob: Blob,
+    fileName: string,
+    contentType?: string
+  ) => {
+    if (isLikelyTextContent(fileName, contentType)) {
+      const text = await blob.text();
+      return text.replace(/\0/g, "").trim().slice(0, 12000);
+    }
+
+    const body = new FormData();
+    body.append(
+      "file",
+      new File([blob], fileName, {
+        type: contentType || "application/octet-stream",
+      })
+    );
+
+    const response = await fetch("/api/ai/extract-document-text", {
+      method: "POST",
+      body,
+    });
+
+    if (!response.ok) {
+      return "";
+    }
+
+    const data = (await response.json()) as { text?: string };
+    return (data.text ?? "").trim().slice(0, 12000);
+  };
+
   useEffect(() => {
     if (loadedRef.current) return;
     loadedRef.current = true;
     load().catch(() => undefined);
   }, [load]);
+
+  useEffect(() => {
+    if (relatedToTypeValue !== 1) return;
+    if (relatedClients.length > 0 || relatedClientsLoading) return;
+    loadRelatedClients().catch(() => undefined);
+  }, [relatedClients.length, relatedClientsLoading, relatedToTypeValue, loadRelatedClients]);
 
   const onDelete = async (id: string) => {
     try {
@@ -78,6 +267,244 @@ const DocumentsContent = () => {
       message.success("Document deleted");
     } catch (error) {
       message.error(getErrorMessage(error, "Unable to delete document"));
+    }
+  };
+
+  const openRecommendation = (record: DocumentRow) => {
+    const recommendation = recommendationByDocumentId[record.id];
+    if (!recommendation) {
+      message.info("Analyze the document first.");
+      return;
+    }
+
+    setSelectedRecommendationDoc(record);
+    setIsRecommendationOpen(true);
+    executionForm.setFieldsValue({
+      clientName: recommendation.extracted?.clientName ?? "",
+      industry: recommendation.extracted?.industry ?? "",
+      website: recommendation.extracted?.website ?? "",
+      contactFirstName: recommendation.extracted?.contactFirstName ?? "",
+      contactLastName: recommendation.extracted?.contactLastName ?? "",
+      contactEmail: recommendation.extracted?.contactEmail ?? "",
+      contactPhone: recommendation.extracted?.contactPhone ?? "",
+      contactPosition: recommendation.extracted?.contactPosition ?? "",
+      opportunityTitle: recommendation.extracted?.opportunityTitle ?? "",
+      estimatedValue: recommendation.extracted?.estimatedValue ?? undefined,
+      source: recommendation.extracted?.source ?? undefined,
+    });
+  };
+
+  const analyzeDocument = async (record: DocumentRow) => {
+    try {
+      setAnalyzingDocumentId(record.id);
+      const { blob, fileName, contentType } = await downloadDocumentBlob(record);
+      const text = await extractDocumentText(blob, fileName, contentType);
+
+      if (!text) {
+        message.warning(
+          "Could not extract readable text from this file. Recommendation will use metadata only."
+        );
+      }
+
+      const response = await fetch("/api/ai/document-recommendation", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          documentId: record.id,
+          fileName,
+          category: record.documentCategory ?? record.category,
+          documentText: text,
+        }),
+      });
+      if (!response.ok) {
+        const errorPayload = (await response.json().catch(() => ({}))) as {
+          message?: string;
+        };
+        throw new Error(errorPayload.message || "AI recommendation failed");
+      }
+      const recommendation = (await response.json()) as DocumentRecommendation;
+
+      setRecommendationByDocumentId((prev) => ({
+        ...prev,
+        [record.id]: recommendation,
+      }));
+      message.success("AI recommendation ready");
+      setSelectedRecommendationDoc(record);
+      setIsRecommendationOpen(true);
+      executionForm.setFieldsValue({
+        clientName: recommendation.extracted?.clientName ?? "",
+        industry: recommendation.extracted?.industry ?? "",
+        website: recommendation.extracted?.website ?? "",
+        contactFirstName: recommendation.extracted?.contactFirstName ?? "",
+        contactLastName: recommendation.extracted?.contactLastName ?? "",
+        contactEmail: recommendation.extracted?.contactEmail ?? "",
+        contactPhone: recommendation.extracted?.contactPhone ?? "",
+        contactPosition: recommendation.extracted?.contactPosition ?? "",
+        opportunityTitle: recommendation.extracted?.opportunityTitle ?? "",
+        estimatedValue: recommendation.extracted?.estimatedValue ?? undefined,
+        source: recommendation.extracted?.source ?? undefined,
+      });
+    } catch (error) {
+      const explicitMessage =
+        error instanceof Error && error.message ? error.message : undefined;
+      message.error(explicitMessage ?? getErrorMessage(error, "Unable to analyze document"));
+    } finally {
+      setAnalyzingDocumentId(null);
+    }
+  };
+
+  const resolveOrCreateClientId = async (values: LeadExecutionForm) => {
+    const searchResponse = await axios.get("/api/Clients", {
+      params: {
+        pageNumber: 1,
+        pageSize: 50,
+        searchTerm: values.clientName,
+      },
+    });
+    const existingClients = getResponseItems<{ id: string; name?: string | null }>(
+      searchResponse.data
+    );
+    const exactMatch = existingClients.find(
+      (client) =>
+        (client.name ?? "").trim().toLowerCase() === values.clientName.trim().toLowerCase()
+    );
+    if (exactMatch?.id) {
+      return exactMatch.id;
+    }
+
+    const createResponse = await axios.post("/api/Clients", {
+      name: values.clientName,
+      industry: values.industry,
+      website: values.website,
+    });
+
+    const createdId = (createResponse.data as { id?: string } | undefined)?.id;
+    if (createdId) {
+      return createdId;
+    }
+
+    const retryResponse = await axios.get("/api/Clients", {
+      params: {
+        pageNumber: 1,
+        pageSize: 50,
+        searchTerm: values.clientName,
+      },
+    });
+    const retryItems = getResponseItems<{ id: string; name?: string | null }>(
+      retryResponse.data
+    );
+    const retryMatch = retryItems.find(
+      (client) =>
+        (client.name ?? "").trim().toLowerCase() === values.clientName.trim().toLowerCase()
+    );
+    if (!retryMatch?.id) {
+      throw new Error("Client was created but could not be resolved.");
+    }
+    return retryMatch.id;
+  };
+
+  const resolveOrCreateContactId = async (clientId: string, values: LeadExecutionForm) => {
+    const firstName =
+      values.contactFirstName?.trim() || splitName(values.contactLastName).firstName;
+    const lastName =
+      values.contactLastName?.trim() || splitName(values.contactFirstName).lastName;
+    const email = values.contactEmail?.trim();
+
+    if (!firstName && !lastName && !email) {
+      return undefined;
+    }
+
+    const existingResponse = await axios.get(`/api/Contacts/by-client/${clientId}`);
+    const existingContacts = getResponseItems<{
+      id: string;
+      firstName?: string | null;
+      lastName?: string | null;
+      email?: string | null;
+    }>(existingResponse.data);
+
+    const matchedByEmail = email
+      ? existingContacts.find(
+          (contact) => (contact.email ?? "").trim().toLowerCase() === email.toLowerCase()
+        )
+      : undefined;
+    if (matchedByEmail?.id) {
+      return matchedByEmail.id;
+    }
+
+    const matchedByName = existingContacts.find((contact) => {
+      const fullName = `${contact.firstName ?? ""} ${contact.lastName ?? ""}`
+        .trim()
+        .toLowerCase();
+      const targetName = `${firstName} ${lastName}`.trim().toLowerCase();
+      return !!targetName && fullName === targetName;
+    });
+    if (matchedByName?.id) {
+      return matchedByName.id;
+    }
+
+    const createResponse = await axios.post("/api/Contacts", {
+      clientId,
+      firstName: firstName || "Primary",
+      lastName: lastName || "Contact",
+      email: email || undefined,
+      phoneNumber: values.contactPhone?.trim() || undefined,
+      position: values.contactPosition?.trim() || undefined,
+      isPrimaryContact: true,
+    });
+
+    const createdId = (createResponse.data as { id?: string } | undefined)?.id;
+    if (createdId) {
+      return createdId;
+    }
+    return undefined;
+  };
+
+  const applyRecommendation = async () => {
+    if (!selectedRecommendationDoc) return;
+    const recommendation = recommendationByDocumentId[selectedRecommendationDoc.id];
+
+    if (!recommendation) {
+      message.error("No recommendation loaded for this document.");
+      return;
+    }
+
+    if (recommendation.recommendedAction !== "create_lead_opportunity") {
+      message.info("This recommendation does not propose a lead creation action.");
+      return;
+    }
+
+    if (!canCreateOpportunity) {
+      message.error("You do not have permission to create opportunities.");
+      return;
+    }
+
+    try {
+      const values = await executionForm.validateFields();
+      setApplyingDocumentId(selectedRecommendationDoc.id);
+
+      const clientId = await resolveOrCreateClientId(values);
+      const contactId = await resolveOrCreateContactId(clientId, values);
+
+      await axios.post("/api/Opportunities", {
+        title: values.opportunityTitle?.trim() || `${values.clientName} Lead`,
+        clientId,
+        contactId,
+        estimatedValue: values.estimatedValue,
+        stage: OpportunityStage.Lead,
+        source: values.source ? sourceToEnum[values.source] : OpportunitySource.Inbound,
+        description: `Created from document ${selectedRecommendationDoc.fileName || selectedRecommendationDoc.name || selectedRecommendationDoc.id}`,
+      });
+
+      setIsRecommendationOpen(false);
+      await load();
+      message.success("Lead opportunity created from AI recommendation");
+    } catch (error) {
+      if ((error as { errorFields?: unknown })?.errorFields) return;
+      message.error(getErrorMessage(error, "Unable to apply AI recommendation"));
+    } finally {
+      setApplyingDocumentId(null);
     }
   };
 
@@ -111,24 +538,31 @@ const DocumentsContent = () => {
         <Space>
           <Button
             size="small"
+            loading={analyzingDocumentId === record.id}
+            onClick={() => analyzeDocument(record)}
+          >
+            Analyze
+          </Button>
+          <Button
+            size="small"
+            type={recommendationByDocumentId[record.id] ? "primary" : "default"}
+            disabled={!recommendationByDocumentId[record.id]}
+            onClick={() => openRecommendation(record)}
+          >
+            AI Suggestion
+          </Button>
+          <Button
+            size="small"
             onClick={async () => {
               try {
-                const response = await axios.get(`/api/Documents/${record.id}/download`, {
-                  responseType: "blob",
+                const { blob, fileName, contentType } = await downloadDocumentBlob(record);
+                const fileBlob = new Blob([blob], {
+                  type: contentType || "application/octet-stream",
                 });
-                const contentDisposition = response.headers["content-disposition"] as string | undefined;
-                const filenameFromHeader = contentDisposition?.match(/filename\*=UTF-8''([^;]+)|filename="?([^"]+)"?/i);
-                const fallbackName = record.fileName || record.name || `document-${record.id}`;
-                const filename = decodeURIComponent(
-                  filenameFromHeader?.[1] || filenameFromHeader?.[2] || fallbackName
-                );
-                const blob = new Blob([response.data], {
-                  type: response.headers["content-type"] || "application/octet-stream",
-                });
-                const url = window.URL.createObjectURL(blob);
+                const url = window.URL.createObjectURL(fileBlob);
                 const anchor = document.createElement("a");
                 anchor.href = url;
-                anchor.download = filename;
+                anchor.download = fileName;
                 document.body.appendChild(anchor);
                 anchor.click();
                 anchor.remove();
@@ -160,6 +594,10 @@ const DocumentsContent = () => {
         message.error("Select a file to upload.");
         return;
       }
+      if (values.relatedToType !== undefined && !values.relatedToId) {
+        message.error("Select a related record.");
+        return;
+      }
       setUploading(true);
       const formData = new FormData();
       formData.append("file", fileList[0].originFileObj as File);
@@ -168,9 +606,7 @@ const DocumentsContent = () => {
       }
       if (values.relatedToType !== undefined) {
         formData.append("relatedToType", String(values.relatedToType));
-      }
-      if (values.relatedToId) {
-        formData.append("relatedToId", values.relatedToId);
+        formData.append("relatedToId", values.relatedToId as string);
       }
       if (values.description) {
         formData.append("description", values.description);
@@ -221,14 +657,50 @@ const DocumentsContent = () => {
                 <Form.Item name="relatedToType" label="Related Type">
                   <Select
                     allowClear
+                    onChange={() => {
+                      form.setFieldValue("relatedToId", undefined);
+                    }}
                     options={Object.entries(RelatedToTypeLabels).map(([value, label]) => ({
                       value: Number(value),
                       label,
                     }))}
                   />
                 </Form.Item>
-                <Form.Item name="relatedToId" label="Related ID">
-                  <Input />
+                <Form.Item
+                  name="relatedToId"
+                  label="Related ID"
+                  rules={[
+                    {
+                      validator: async (_, value) => {
+                        const selectedType = form.getFieldValue("relatedToType");
+                        if (selectedType !== undefined && !value) {
+                          throw new Error("Select a related record");
+                        }
+                      },
+                    },
+                  ]}
+                >
+                  {relatedToTypeValue === 1 ? (
+                    <Select
+                      showSearch
+                      allowClear
+                      loading={relatedClientsLoading}
+                      optionFilterProp="label"
+                      placeholder="Select client"
+                      options={relatedClients.map((client) => ({
+                        value: client.id,
+                        label: `${client.name || "Unnamed Client"} (${client.id.slice(0, 8)})`,
+                      }))}
+                    />
+                  ) : (
+                    <Input
+                      placeholder={
+                        relatedToTypeValue !== undefined
+                          ? "Enter related record ID"
+                          : "Select Related Type first"
+                      }
+                    />
+                  )}
                 </Form.Item>
                 <Form.Item name="description" label="Description">
                   <Input.TextArea rows={3} />
@@ -248,6 +720,101 @@ const DocumentsContent = () => {
         columns={columns}
         pagination={{ pageSize: 10 }}
       />
+      <Modal
+        title="AI Recommendation"
+        open={isRecommendationOpen}
+        onCancel={() => {
+          setIsRecommendationOpen(false);
+          setSelectedRecommendationDoc(null);
+        }}
+        onOk={applyRecommendation}
+        okText="Approve & Run"
+        okButtonProps={{
+          loading: applyingDocumentId === selectedRecommendationDoc?.id,
+          disabled:
+            !selectedRecommendationDoc ||
+            recommendationByDocumentId[selectedRecommendationDoc.id]?.recommendedAction !==
+              "create_lead_opportunity",
+        }}
+      >
+        {selectedRecommendationDoc ? (
+          <>
+            <Alert
+              type={
+                recommendationByDocumentId[selectedRecommendationDoc.id]?.recommendedAction ===
+                "create_lead_opportunity"
+                  ? "success"
+                  : "info"
+              }
+              showIcon
+              message={`Recommended action: ${
+                recommendationByDocumentId[selectedRecommendationDoc.id]?.recommendedAction ===
+                "create_lead_opportunity"
+                  ? "Create Lead Opportunity"
+                  : "No automatic action"
+              }`}
+              description={`Confidence: ${Math.round(
+                (recommendationByDocumentId[selectedRecommendationDoc.id]?.confidence ?? 0) * 100
+              )}% | Type: ${
+                recommendationByDocumentId[selectedRecommendationDoc.id]?.documentType ?? "other"
+              }${
+                recommendationByDocumentId[selectedRecommendationDoc.id]?.reasoning
+                  ? ` | ${recommendationByDocumentId[selectedRecommendationDoc.id]?.reasoning}`
+                  : ""
+              }`}
+              style={{ marginBottom: 16 }}
+            />
+            <Form form={executionForm} layout="vertical">
+              <Form.Item
+                name="clientName"
+                label="Client Name"
+                rules={[{ required: true, message: "Client name is required" }]}
+              >
+                <Input />
+              </Form.Item>
+              <Form.Item name="industry" label="Industry">
+                <Input />
+              </Form.Item>
+              <Form.Item name="website" label="Website">
+                <Input />
+              </Form.Item>
+              <Form.Item name="contactFirstName" label="Contact First Name">
+                <Input />
+              </Form.Item>
+              <Form.Item name="contactLastName" label="Contact Last Name">
+                <Input />
+              </Form.Item>
+              <Form.Item name="contactEmail" label="Contact Email">
+                <Input />
+              </Form.Item>
+              <Form.Item name="contactPhone" label="Contact Phone">
+                <Input />
+              </Form.Item>
+              <Form.Item name="contactPosition" label="Contact Position">
+                <Input />
+              </Form.Item>
+              <Form.Item name="opportunityTitle" label="Opportunity Title">
+                <Input />
+              </Form.Item>
+              <Form.Item name="estimatedValue" label="Estimated Value">
+                <InputNumber style={{ width: "100%" }} />
+              </Form.Item>
+              <Form.Item name="source" label="Source">
+                <Select
+                  allowClear
+                  options={[
+                    { value: "Inbound", label: "Inbound" },
+                    { value: "Outbound", label: "Outbound" },
+                    { value: "Referral", label: "Referral" },
+                    { value: "Partner", label: "Partner" },
+                    { value: "RFP", label: "RFP" },
+                  ]}
+                />
+              </Form.Item>
+            </Form>
+          </>
+        ) : null}
+      </Modal>
     </div>
   );
 };
