@@ -145,6 +145,25 @@ const decodeFileNameFromHeader = (
   return decodeURIComponent(filenameFromHeader?.[1] || filenameFromHeader?.[2] || fallbackName);
 };
 
+const fetchJsonWithTimeout = async <T,>(
+  input: RequestInfo | URL,
+  init: RequestInit,
+  timeoutMs = 25000
+) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+    const data = (await response.json().catch(() => ({}))) as T;
+    return { response, data };
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 const DocumentsContent = () => {
   const axios = getAxiosInstance();
   const { role, user } = useAuthState();
@@ -235,16 +254,19 @@ const DocumentsContent = () => {
       })
     );
 
-    const response = await fetch("/api/ai/extract-document-text", {
-      method: "POST",
-      body,
-    });
+    const { response, data } = await fetchJsonWithTimeout<{ text?: string }>(
+      "/api/ai/extract-document-text",
+      {
+        method: "POST",
+        body,
+      },
+      25000
+    );
 
     if (!response.ok) {
       return "";
     }
 
-    const data = (await response.json()) as { text?: string };
     return (data.text ?? "").trim().slice(0, 12000);
   };
 
@@ -306,25 +328,28 @@ const DocumentsContent = () => {
         );
       }
 
-      const response = await fetch("/api/ai/document-recommendation", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const { response, data } = await fetchJsonWithTimeout<
+        DocumentRecommendation & { message?: string }
+      >(
+        "/api/ai/document-recommendation",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            documentId: record.id,
+            fileName,
+            category: record.documentCategory ?? record.category,
+            documentText: text,
+          }),
         },
-        body: JSON.stringify({
-          documentId: record.id,
-          fileName,
-          category: record.documentCategory ?? record.category,
-          documentText: text,
-        }),
-      });
+        30000
+      );
       if (!response.ok) {
-        const errorPayload = (await response.json().catch(() => ({}))) as {
-          message?: string;
-        };
-        throw new Error(errorPayload.message || "AI recommendation failed");
+        throw new Error(data.message || "AI recommendation failed");
       }
-      const recommendation = (await response.json()) as DocumentRecommendation;
+      const recommendation = data as DocumentRecommendation;
 
       setRecommendationByDocumentId((prev) => ({
         ...prev,

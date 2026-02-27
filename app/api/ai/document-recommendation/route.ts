@@ -8,6 +8,8 @@ interface RecommendationPayload {
   documentText?: string;
 }
 
+const REQUEST_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS ?? 20000);
+
 interface RecommendationResponse {
   documentType: "lead" | "contract" | "invoice" | "proposal" | "report" | "other";
   recommendedAction: "create_lead_opportunity" | "none";
@@ -190,8 +192,18 @@ export async function POST(request: NextRequest) {
     const baseUrl =
       process.env.AI_BASE_URL?.replace(/\/$/, "") ??
       "https://openrouter.ai/api/v1";
-    const model =
+    const primaryModel =
       process.env.AI_MODEL ?? "meta-llama/llama-3.1-8b-instruct:free";
+    const fallbackModels = [
+      "openrouter/free",
+      "meta-llama/llama-3.1-8b-instruct:free",
+      "meta-llama/llama-3.2-3b-instruct:free",
+      "qwen/qwen2.5-7b-instruct:free",
+      "deepseek/deepseek-r1:free",
+    ];
+    const modelsToTry = Array.from(
+      new Set([primaryModel, ...fallbackModels])
+    );
 
     const userPrompt = JSON.stringify(
       {
@@ -205,44 +217,66 @@ export async function POST(request: NextRequest) {
       2
     );
 
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        temperature: 0.1,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-      cache: "no-store",
-    });
+    let lastFailure = "No model attempts were made.";
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      return NextResponse.json(
-        buildHeuristicRecommendation(payload, `LLM call failed (${response.status}): ${errorText.slice(0, 120)}`)
-      );
+    for (const model of modelsToTry) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      try {
+        const response = await fetch(`${baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            temperature: 0.1,
+            response_format: { type: "json_object" },
+            messages: [
+              { role: "system", content: SYSTEM_PROMPT },
+              { role: "user", content: userPrompt },
+            ],
+          }),
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          lastFailure = `${model} failed (${response.status}): ${errorText.slice(0, 120)}`;
+          continue;
+        }
+
+        const data = (await response.json()) as {
+          choices?: Array<{ message?: { content?: string } }>;
+        };
+
+        const content = data.choices?.[0]?.message?.content;
+        if (!content) {
+          lastFailure = `${model} returned empty content`;
+          continue;
+        }
+
+        const parsed = JSON.parse(extractJsonObject(content));
+        return NextResponse.json(parsed);
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          lastFailure = `${model} timed out after ${REQUEST_TIMEOUT_MS}ms`;
+        } else {
+          lastFailure =
+            error instanceof Error
+              ? `${model} error: ${error.message}`
+              : `${model} unknown error`;
+        }
+      } finally {
+        clearTimeout(timeout);
+      }
     }
 
-    const data = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) {
-      return NextResponse.json(
-        buildHeuristicRecommendation(payload, "LLM returned no content.")
-      );
-    }
-
-    const parsed = JSON.parse(extractJsonObject(content));
-    return NextResponse.json(parsed);
+    return NextResponse.json(
+      buildHeuristicRecommendation(payload, `All models failed. ${lastFailure}`)
+    );
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unexpected AI error.";
