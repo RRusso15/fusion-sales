@@ -217,16 +217,35 @@ const DocumentsContent = () => {
     [axios]
   );
 
-  const inferDocumentText = async (
+  const extractDocumentText = async (
     blob: Blob,
     fileName: string,
     contentType?: string
   ) => {
-    if (!isLikelyTextContent(fileName, contentType)) return "";
+    if (isLikelyTextContent(fileName, contentType)) {
+      const text = await blob.text();
+      return text.replace(/\0/g, "").trim().slice(0, 12000);
+    }
 
-    const text = await blob.text();
-    const cleaned = text.replace(/\0/g, "").trim();
-    return cleaned.slice(0, 12000);
+    const body = new FormData();
+    body.append(
+      "file",
+      new File([blob], fileName, {
+        type: contentType || "application/octet-stream",
+      })
+    );
+
+    const response = await fetch("/api/ai/extract-document-text", {
+      method: "POST",
+      body,
+    });
+
+    if (!response.ok) {
+      return "";
+    }
+
+    const data = (await response.json()) as { text?: string };
+    return (data.text ?? "").trim().slice(0, 12000);
   };
 
   useEffect(() => {
@@ -279,21 +298,33 @@ const DocumentsContent = () => {
     try {
       setAnalyzingDocumentId(record.id);
       const { blob, fileName, contentType } = await downloadDocumentBlob(record);
-      const text = await inferDocumentText(blob, fileName, contentType);
+      const text = await extractDocumentText(blob, fileName, contentType);
 
       if (!text) {
         message.warning(
-          "Could not read text from this file type automatically. Recommendation will use metadata only."
+          "Could not extract readable text from this file. Recommendation will use metadata only."
         );
       }
 
-      const response = await axios.post("/api/ai/document-recommendation", {
-        documentId: record.id,
-        fileName,
-        category: record.documentCategory ?? record.category,
-        documentText: text,
+      const response = await fetch("/api/ai/document-recommendation", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          documentId: record.id,
+          fileName,
+          category: record.documentCategory ?? record.category,
+          documentText: text,
+        }),
       });
-      const recommendation = response.data as DocumentRecommendation;
+      if (!response.ok) {
+        const errorPayload = (await response.json().catch(() => ({}))) as {
+          message?: string;
+        };
+        throw new Error(errorPayload.message || "AI recommendation failed");
+      }
+      const recommendation = (await response.json()) as DocumentRecommendation;
 
       setRecommendationByDocumentId((prev) => ({
         ...prev,
@@ -316,7 +347,9 @@ const DocumentsContent = () => {
         source: recommendation.extracted?.source ?? undefined,
       });
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to analyze document"));
+      const explicitMessage =
+        error instanceof Error && error.message ? error.message : undefined;
+      message.error(explicitMessage ?? getErrorMessage(error, "Unable to analyze document"));
     } finally {
       setAnalyzingDocumentId(null);
     }
