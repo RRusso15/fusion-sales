@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
-  Alert,
   Button,
   Card,
   Col,
@@ -22,11 +21,10 @@ import { Roles } from "@/constants/roles";
 import { useAuthState } from "@/providers/authProvider";
 import { getAxiosInstance } from "@/utils/axiosInstance";
 import {
-  DashboardProvider,
-  useDashboardActions,
-  useDashboardState,
-} from "@/providers/dashboardProvider";
-import type { ISalesPerformance } from "@/providers/dashboardProvider/context";
+  UsersProvider,
+  useUsersActions,
+  useUsersState,
+} from "@/providers/usersProvider";
 
 interface CreateUserForm {
   firstName: string;
@@ -41,19 +39,19 @@ const AdminUsersContent = () => {
   const { tenantId, currentUser } = useAuthState();
   const axios = getAxiosInstance();
   const [form] = Form.useForm<CreateUserForm>();
-  const { salesPerformance, isPending } = useDashboardState();
-  const { fetchSalesPerformance } = useDashboardActions();
+  const { users, isPending } = useUsersState();
+  const { fetchUsers } = useUsersActions();
   const loadedRef = useRef(false);
 
-  const loadSalesUsers = useCallback(async () => {
-    await fetchSalesPerformance(50);
-  }, [fetchSalesPerformance]);
+  const loadTenantUsers = useCallback(async () => {
+    await fetchUsers({ pageNumber: 1, pageSize: 100, isActive: true });
+  }, [fetchUsers]);
 
   useEffect(() => {
     if (loadedRef.current) return;
     loadedRef.current = true;
-    loadSalesUsers().catch(() => undefined);
-  }, [loadSalesUsers]);
+    loadTenantUsers().catch(() => undefined);
+  }, [loadTenantUsers]);
 
   const handleCreateUser = async (values: CreateUserForm) => {
     const activeTenantId = tenantId ?? currentUser?.tenantId;
@@ -74,7 +72,7 @@ const AdminUsersContent = () => {
       });
       message.success("User created.");
       form.resetFields();
-      await loadSalesUsers();
+      await loadTenantUsers();
     } catch (error) {
       const status = (error as { response?: { status?: number } })?.response?.status;
       if (status === 400) {
@@ -89,15 +87,32 @@ const AdminUsersContent = () => {
     }
   };
 
-  const salesUserColumns: TableProps<ISalesPerformance>["columns"] = [
-    { title: "User", dataIndex: "userName", key: "userName" },
-    { title: "User ID", dataIndex: "userId", key: "userId" },
-    { title: "Deals Won", dataIndex: "dealsWon", key: "dealsWon" },
+  const userColumns: TableProps<(typeof users)[number]>["columns"] = [
+    { title: "Name", dataIndex: "fullName", key: "fullName" },
+    { title: "Email", dataIndex: "email", key: "email" },
     {
-      title: "Revenue",
-      dataIndex: "totalRevenue",
-      key: "totalRevenue",
-      render: (value: number) => value?.toLocaleString?.() ?? 0,
+      title: "Role",
+      dataIndex: "roles",
+      key: "roles",
+      render: (value?: string[]) => (value && value.length > 0 ? value.join(", ") : "-"),
+    },
+    {
+      title: "Status",
+      dataIndex: "isActive",
+      key: "isActive",
+      render: (value?: boolean) => (value ? "Active" : "Inactive"),
+    },
+    {
+      title: "Last Login",
+      dataIndex: "lastLoginAt",
+      key: "lastLoginAt",
+      render: (value?: string) => (value ? new Date(value).toLocaleString() : "-"),
+    },
+    {
+      title: "Created",
+      dataIndex: "createdAt",
+      key: "createdAt",
+      render: (value?: string) => (value ? new Date(value).toLocaleDateString() : "-"),
     },
   ];
 
@@ -105,23 +120,17 @@ const AdminUsersContent = () => {
     <Space direction="vertical" size={16} style={{ width: "100%" }}>
       <Card>
         <Typography.Paragraph>
-          Create users inside your organisation tenant.
+          Create and view users inside your organisation tenant.
         </Typography.Paragraph>
-        <Alert
-          type="info"
-          showIcon
-          message="User-list endpoint is not exposed in API. The table below uses /api/dashboard/sales-performance (top performers), not a full tenant user directory."
-        />
       </Card>
 
-      <Card title="Sales Users (Performance View)">
-        <Button onClick={() => loadSalesUsers()}>Refresh Performance Users</Button>
-        <Table<ISalesPerformance>
+      <Card title="Organisation Users">
+        <Table<(typeof users)[number]>
           style={{ marginTop: 12 }}
-          rowKey="userId"
+          rowKey="id"
           loading={isPending}
-          dataSource={Array.isArray(salesPerformance) ? salesPerformance : []}
-          columns={salesUserColumns}
+          dataSource={Array.isArray(users) ? users : []}
+          columns={userColumns}
           pagination={{ pageSize: 8 }}
         />
       </Card>
@@ -198,9 +207,9 @@ const AdminUsersContent = () => {
 export default function AdminUsersPage() {
   return (
     <AuthGuard requiredRoles={[Roles.Admin]} redirectTo="/unauthorized">
-      <DashboardProvider>
+      <UsersProvider>
         <AdminUsersContent />
-      </DashboardProvider>
+      </UsersProvider>
     </AuthGuard>
   );
 }

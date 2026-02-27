@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Button,
-  Card,
+  Button,
   Collapse,
   Form,
   Input,
@@ -46,22 +45,22 @@ import {
   useContactState,
 } from "@/providers/contactProvider";
 import {
-  DashboardProvider,
-  useDashboardActions,
-  useDashboardState,
-} from "@/providers/dashboardProvider";
+  UsersProvider,
+  useUsersActions,
+  useUsersState,
+} from "@/providers/usersProvider";
 
 const OpportunitiesContent = () => {
   const { role, user } = useAuthState();
   const { opportunities, isPending } = useOpportunityState();
   const { clients } = useClientState();
   const { contacts } = useContactState();
-  const { salesPerformance } = useDashboardState();
-  const { fetchOpportunities, fetchMyOpportunities, createOpportunity, updateOpportunity, assignOpportunity, advanceStage, moveStage } =
+  const { users: tenantUsers } = useUsersState();
+  const { fetchOpportunities, fetchMyOpportunities, createOpportunity, updateOpportunity, assignOpportunity, moveStage } =
     useOpportunityActions();
   const { fetchClients } = useClientActions();
   const { fetchContacts } = useContactActions();
-  const { fetchSalesPerformance } = useDashboardActions();
+  const { fetchUsers } = useUsersActions();
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingOpportunityId, setEditingOpportunityId] = useState<string | null>(null);
@@ -82,7 +81,7 @@ const OpportunitiesContent = () => {
         fetchOpportunities({ pageNumber: 1, pageSize: 20 }),
         fetchClients({ pageNumber: 1, pageSize: 100 }),
         fetchContacts({ pageNumber: 1, pageSize: 200 }),
-        fetchSalesPerformance(20),
+        fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
       ]);
       return;
     }
@@ -90,7 +89,7 @@ const OpportunitiesContent = () => {
       fetchMyOpportunities({ pageNumber: 1, pageSize: 20 }),
       fetchClients({ pageNumber: 1, pageSize: 100 }),
       fetchContacts({ pageNumber: 1, pageSize: 200 }),
-      fetchSalesPerformance(20),
+      fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
     ]);
   }, [
     canSeeAll,
@@ -98,7 +97,7 @@ const OpportunitiesContent = () => {
     fetchOpportunities,
     fetchClients,
     fetchContacts,
-    fetchSalesPerformance,
+    fetchUsers,
   ]);
 
   useEffect(() => {
@@ -109,11 +108,18 @@ const OpportunitiesContent = () => {
 
   const handleAdvance = async (id: string) => {
     try {
-      await advanceStage(id, "Advanced from UI workflow");
+      const record = opportunities.find((item) => item.id === id);
+      const currentStage = record?.stage ?? OpportunityStage.Lead;
+      if (currentStage >= OpportunityStage.Negotiation) {
+        message.info("Use Close Won or Close Lost to complete this opportunity.");
+        return;
+      }
+      const nextStage = (currentStage + 1) as OpportunityStageValue;
+      await moveStage(id, nextStage, "Advanced from UI workflow");
       await load();
       message.success("Stage advanced");
-    } catch {
-      message.error("Unable to advance stage");
+    } catch (error) {
+      message.error(getErrorMessage(error, "Unable to advance stage"));
     }
   };
 
@@ -198,9 +204,22 @@ const OpportunitiesContent = () => {
       title: "Stage",
       dataIndex: "stage",
       key: "stage",
-      render: (value?: number) => (
-        <Tag>{(OpportunityStageLabels as Record<number, string>)[value ?? 0] ?? "-"}</Tag>
-      ),
+      render: (value?: number) => {
+        const stage = value ?? 0;
+        const colorByStage: Record<number, string> = {
+          [OpportunityStage.Lead]: "default",
+          [OpportunityStage.Qualified]: "blue",
+          [OpportunityStage.Proposal]: "purple",
+          [OpportunityStage.Negotiation]: "orange",
+          [OpportunityStage.ClosedWon]: "green",
+          [OpportunityStage.ClosedLost]: "red",
+        };
+        return (
+          <Tag color={colorByStage[stage] ?? "default"}>
+            {(OpportunityStageLabels as Record<number, string>)[stage] ?? "-"}
+          </Tag>
+        );
+      },
     },
     {
       title: "Workflow",
@@ -248,19 +267,11 @@ const OpportunitiesContent = () => {
     },
   ];
 
-  const salesUsers = Array.isArray(salesPerformance)
-    ? salesPerformance
-    : [];
   const assignableUsers = [
-    ...(user?.id
-      ? [
-          {
-            userId: user.id,
-            userName: `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email || "Current User",
-          },
-        ]
-      : []),
-    ...salesUsers,
+    ...tenantUsers.map((entry) => ({
+      userId: entry.id,
+      userName: entry.fullName || `${entry.firstName} ${entry.lastName}`.trim() || entry.email,
+    })),
   ].filter(
     (candidate, index, self) =>
       candidate.userId &&
@@ -272,11 +283,6 @@ const OpportunitiesContent = () => {
 
   return (
     <div style={capabilityStyles.container}>
-      <Card style={capabilityStyles.header}>
-        <div style={capabilityStyles.actions}>
-          <Button onClick={() => load()}>Refresh</Button>
-        </div>
-      </Card>
       <Collapse
         items={[
           {
@@ -407,7 +413,7 @@ const OpportunitiesContent = () => {
 export default function OpportunitiesPage() {
   return (
     <AuthGuard>
-      <DashboardProvider>
+      <UsersProvider>
         <ClientProvider>
           <ContactProvider>
             <OpportunityProvider>
@@ -415,7 +421,8 @@ export default function OpportunitiesPage() {
             </OpportunityProvider>
           </ContactProvider>
         </ClientProvider>
-      </DashboardProvider>
+      </UsersProvider>
     </AuthGuard>
   );
 }
+

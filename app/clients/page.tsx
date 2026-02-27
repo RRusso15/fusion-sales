@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Button,
-  Card,
+  Button,
   Collapse,
   Form,
   Input,
@@ -44,7 +43,7 @@ const ClientsContent = () => {
   const canCreate = hasPermission(activeRole, Permission.createClient);
 
   const load = useCallback(async () => {
-    await fetchClients({ pageNumber: 1, pageSize: 20 });
+    await fetchClients({ pageNumber: 1, pageSize: 100, isActive: true });
   }, [fetchClients]);
 
   useEffect(() => {
@@ -151,11 +150,6 @@ const ClientsContent = () => {
 
   return (
     <div style={capabilityStyles.container}>
-      <Card style={capabilityStyles.header}>
-        <div style={capabilityStyles.actions}>
-          <Button onClick={() => load()}>Refresh</Button>
-        </div>
-      </Card>
       <Collapse
         items={[
           {
@@ -242,3 +236,4 @@ export default function ClientsPage() {
     </AuthGuard>
   );
 }
+

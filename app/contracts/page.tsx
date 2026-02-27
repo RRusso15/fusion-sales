@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Button,
-  Card,
   Collapse,
+  DatePicker,
   Form,
   Input,
   InputNumber,
@@ -36,19 +36,20 @@ import {
   useClientState,
 } from "@/providers/clientProvider";
 import {
-  DashboardProvider,
-  useDashboardActions,
-  useDashboardState,
-} from "@/providers/dashboardProvider";
+  UsersProvider,
+  useUsersActions,
+  useUsersState,
+} from "@/providers/usersProvider";
+import dayjs, { Dayjs } from "dayjs";
 
 const ContractsContent = () => {
   const { role, user } = useAuthState();
   const { contracts, isPending } = useContractState();
   const { clients } = useClientState();
-  const { salesPerformance } = useDashboardState();
+  const { users: tenantUsers } = useUsersState();
   const { fetchContracts, createContract, updateContract, createRenewal, completeRenewal, activateContract, cancelContract } = useContractActions();
   const { fetchClients } = useClientActions();
-  const { fetchSalesPerformance } = useDashboardActions();
+  const { fetchUsers } = useUsersActions();
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingContractId, setEditingContractId] = useState<string | null>(null);
@@ -61,11 +62,11 @@ const ContractsContent = () => {
 
   const load = useCallback(async () => {
     await Promise.all([
-      fetchContracts({ pageNumber: 1, pageSize: 20 }),
+      fetchContracts({ pageNumber: 1, pageSize: 100 }),
       fetchClients({ pageNumber: 1, pageSize: 100 }),
-      fetchSalesPerformance(20),
+      fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
     ]);
-  }, [fetchContracts, fetchClients, fetchSalesPerformance]);
+  }, [fetchContracts, fetchClients, fetchUsers]);
 
   useEffect(() => {
     if (loadedRef.current) return;
@@ -88,13 +89,13 @@ const ContractsContent = () => {
     createTitle?: string;
     createValue?: number;
     createCurrency?: string;
-    createStartDate?: string;
-    createEndDate?: string;
+    createStartDate?: Dayjs;
+    createEndDate?: Dayjs;
     createOwnerId?: string;
     createAutoRenew?: boolean;
     renewalContractId?: string;
-    renewalStartDate?: string;
-    renewalEndDate?: string;
+    renewalStartDate?: Dayjs;
+    renewalEndDate?: Dayjs;
     renewalValue?: number;
     renewalCompleteId?: string;
   }) => {
@@ -105,16 +106,16 @@ const ContractsContent = () => {
           title: values.createTitle,
           contractValue: values.createValue,
           currency: values.createCurrency,
-          startDate: values.createStartDate,
-          endDate: values.createEndDate,
+          startDate: values.createStartDate.format("YYYY-MM-DD"),
+          endDate: values.createEndDate.format("YYYY-MM-DD"),
           ownerId: values.createOwnerId,
           autoRenew: values.createAutoRenew,
         });
       }
       if (values.renewalContractId && values.renewalStartDate && values.renewalEndDate && values.renewalValue !== undefined && canCreate) {
         await createRenewal(values.renewalContractId, {
-          proposedStartDate: values.renewalStartDate,
-          proposedEndDate: values.renewalEndDate,
+          proposedStartDate: values.renewalStartDate.format("YYYY-MM-DD"),
+          proposedEndDate: values.renewalEndDate.format("YYYY-MM-DD"),
           proposedValue: values.renewalValue,
         });
       }
@@ -134,7 +135,7 @@ const ContractsContent = () => {
     editForm.setFieldsValue({
       title: contractRecord.title,
       contractValue: contractRecord.contractValue,
-      endDate: contractRecord.endDate,
+      endDate: contractRecord.endDate ? dayjs(contractRecord.endDate) : undefined,
     });
     setIsEditOpen(true);
   };
@@ -146,7 +147,7 @@ const ContractsContent = () => {
       await updateContract(editingContractId, {
         title: values.title,
         contractValue: values.contractValue,
-        endDate: values.endDate,
+        endDate: values.endDate ? (values.endDate as Dayjs).format("YYYY-MM-DD") : undefined,
       });
       setIsEditOpen(false);
       setEditingContractId(null);
@@ -204,21 +205,19 @@ const ContractsContent = () => {
   ];
 
   const ownerOptions = [
-    ...(user?.id
-      ? [
-          {
-            value: user.id,
-            label:
-              `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
-              user.email ||
-              "Current User",
-          },
-        ]
+    ...tenantUsers.map((entry) => ({
+      value: entry.id,
+      label: `${entry.fullName || `${entry.firstName} ${entry.lastName}`.trim() || entry.email} (${entry.id.slice(0, 8)})`,
+    })),
+    ...(user?.id && tenantUsers.every((entry) => entry.id !== user.id)
+      ? [{
+          value: user.id,
+          label:
+            `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
+            user.email ||
+            "Current User",
+        }]
       : []),
-    ...((Array.isArray(salesPerformance) ? salesPerformance : []).map((entry) => ({
-      value: entry.userId,
-      label: `${entry.userName} (${entry.userId.slice(0, 8)})`,
-    }))),
   ].filter(
     (candidate, index, self) =>
       self.findIndex((item) => item.value === candidate.value) === index
@@ -226,11 +225,6 @@ const ContractsContent = () => {
 
   return (
     <div style={capabilityStyles.container}>
-      <Card style={capabilityStyles.header}>
-        <div style={capabilityStyles.actions}>
-          <Button onClick={() => load()}>Refresh</Button>
-        </div>
-      </Card>
       <Collapse
         items={[
           {
@@ -238,7 +232,11 @@ const ContractsContent = () => {
             label: "Create Contract",
             children: (
               <Form layout="vertical" onFinish={onCreateRenewal}>
-                <Form.Item name="createClientId" label="Client ID">
+                <Form.Item
+                  name="createClientId"
+                  label="Client ID"
+                  rules={[{ required: true, message: "Select a client" }]}
+                >
                   <Select
                     disabled={!canCreate}
                     options={clients.map((client) => ({
@@ -249,20 +247,40 @@ const ContractsContent = () => {
                     optionFilterProp="label"
                   />
                 </Form.Item>
-                <Form.Item name="createTitle" label="Title">
+                <Form.Item
+                  name="createTitle"
+                  label="Title"
+                  rules={[{ required: true, message: "Enter contract title" }]}
+                >
                   <Input disabled={!canCreate} />
                 </Form.Item>
-                <Form.Item name="createValue" label="Contract Value">
+                <Form.Item
+                  name="createValue"
+                  label="Contract Value"
+                  rules={[{ required: true, message: "Enter contract value" }]}
+                >
                   <InputNumber style={{ width: "100%" }} disabled={!canCreate} />
                 </Form.Item>
-                <Form.Item name="createCurrency" label="Currency">
+                <Form.Item
+                  name="createCurrency"
+                  label="Currency"
+                  rules={[{ required: true, message: "Enter currency" }]}
+                >
                   <Input disabled={!canCreate} />
                 </Form.Item>
-                <Form.Item name="createStartDate" label="Start Date (YYYY-MM-DD)">
-                  <Input disabled={!canCreate} />
+                <Form.Item
+                  name="createStartDate"
+                  label="Start Date"
+                  rules={[{ required: true, message: "Select start date" }]}
+                >
+                  <DatePicker disabled={!canCreate} style={{ width: "100%" }} />
                 </Form.Item>
-                <Form.Item name="createEndDate" label="End Date (YYYY-MM-DD)">
-                  <Input disabled={!canCreate} />
+                <Form.Item
+                  name="createEndDate"
+                  label="End Date"
+                  rules={[{ required: true, message: "Select end date" }]}
+                >
+                  <DatePicker disabled={!canCreate} style={{ width: "100%" }} />
                 </Form.Item>
                 <Form.Item name="createOwnerId" label="Owner ID">
                   <Select
@@ -298,10 +316,10 @@ const ContractsContent = () => {
                   />
                 </Form.Item>
                 <Form.Item name="renewalStartDate" label="Renewal: Start Date (YYYY-MM-DD)">
-                  <Input disabled={!canCreate} />
+                  <DatePicker disabled={!canCreate} style={{ width: "100%" }} />
                 </Form.Item>
                 <Form.Item name="renewalEndDate" label="Renewal: End Date (YYYY-MM-DD)">
-                  <Input disabled={!canCreate} />
+                  <DatePicker disabled={!canCreate} style={{ width: "100%" }} />
                 </Form.Item>
                 <Form.Item name="renewalValue" label="Renewal: Proposed Value">
                   <InputNumber style={{ width: "100%" }} disabled={!canCreate} />
@@ -342,7 +360,7 @@ const ContractsContent = () => {
             <InputNumber style={{ width: "100%" }} disabled={!canCreate} />
           </Form.Item>
           <Form.Item name="endDate" label="End Date (YYYY-MM-DD)">
-            <Input disabled={!canCreate} />
+            <DatePicker disabled={!canCreate} style={{ width: "100%" }} />
           </Form.Item>
         </Form>
       </Modal>
@@ -353,13 +371,14 @@ const ContractsContent = () => {
 export default function ContractsPage() {
   return (
     <AuthGuard>
-      <DashboardProvider>
+      <UsersProvider>
         <ClientProvider>
           <ContractProvider>
             <ContractsContent />
           </ContractProvider>
         </ClientProvider>
-      </DashboardProvider>
+      </UsersProvider>
     </AuthGuard>
   );
 }
+

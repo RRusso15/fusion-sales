@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Button,
-  Card,
+  Button,
   Collapse,
   Form,
   Input,
@@ -62,16 +61,6 @@ const ContactsContent = () => {
     load().catch(() => undefined);
   }, [load]);
 
-  const onSetPrimary = async (id: string) => {
-    try {
-      await setPrimaryContact(id);
-      await load();
-      message.success("Primary contact updated");
-    } catch (error) {
-      message.error(getErrorMessage(error, "Unable to set primary contact"));
-    }
-  };
-
   const onDelete = async (id: string) => {
     try {
       await deleteContact(id);
@@ -119,6 +108,7 @@ const ContactsContent = () => {
       email: contact.email,
       phoneNumber: contact.phoneNumber,
       position: contact.position,
+      isPrimaryContact: !!contact.isPrimaryContact,
     });
     setIsEditOpen(true);
   };
@@ -134,6 +124,9 @@ const ContactsContent = () => {
         phoneNumber: values.phoneNumber,
         position: values.position,
       });
+      if (values.isPrimaryContact && canSetPrimary) {
+        await setPrimaryContact(editingContactId);
+      }
       setIsEditOpen(false);
       setEditingContactId(null);
       await load();
@@ -158,13 +151,6 @@ const ContactsContent = () => {
           </Button>
           <Button
             size="small"
-            disabled={!canSetPrimary}
-            onClick={() => onSetPrimary(record.id)}
-          >
-            Set Primary
-          </Button>
-          <Button
-            size="small"
             danger
             disabled={!canDelete}
             onClick={() => onDelete(record.id)}
@@ -178,11 +164,6 @@ const ContactsContent = () => {
 
   return (
     <div style={capabilityStyles.container}>
-      <Card style={capabilityStyles.header}>
-        <div style={capabilityStyles.actions}>
-          <Button onClick={() => load()}>Refresh</Button>
-        </div>
-      </Card>
       <Collapse
         items={[
           {
@@ -260,6 +241,9 @@ const ContactsContent = () => {
           <Form.Item name="position" label="Position">
             <Input disabled={!canCreate} />
           </Form.Item>
+          <Form.Item name="isPrimaryContact" label="Primary Contact" valuePropName="checked">
+            <Switch disabled={!canSetPrimary} />
+          </Form.Item>
         </Form>
       </Modal>
     </div>
@@ -277,3 +261,4 @@ export default function ContactsPage() {
     </AuthGuard>
   );
 }
+

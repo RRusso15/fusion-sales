@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Button,
-  Card,
   Collapse,
+  DatePicker,
   Form,
   Input,
   Modal,
@@ -32,6 +32,7 @@ import type {
   RelatedToTypeValue,
 } from "@/constants/enums";
 import {
+  ActivityStatus,
   ActivityStatusLabels,
   RelatedToType,
   ActivityTypeLabels,
@@ -59,10 +60,11 @@ import {
   useContractState,
 } from "@/providers/contractProvider";
 import {
-  DashboardProvider,
-  useDashboardActions,
-  useDashboardState,
-} from "@/providers/dashboardProvider";
+  UsersProvider,
+  useUsersActions,
+  useUsersState,
+} from "@/providers/usersProvider";
+import dayjs, { Dayjs } from "dayjs";
 
 const ActivitiesContent = () => {
   const { role, user } = useAuthState();
@@ -71,14 +73,14 @@ const ActivitiesContent = () => {
   const { opportunities } = useOpportunityState();
   const { proposals } = useProposalState();
   const { contracts } = useContractState();
-  const { salesPerformance } = useDashboardState();
+  const { users: tenantUsers } = useUsersState();
   const { fetchActivities, fetchMyActivities, createActivity, updateActivity, cancelActivity, completeActivity, deleteActivity } =
     useActivityActions();
   const { fetchClients } = useClientActions();
   const { fetchOpportunities, fetchMyOpportunities } = useOpportunityActions();
   const { fetchProposals } = useProposalActions();
   const { fetchContracts } = useContractActions();
-  const { fetchSalesPerformance } = useDashboardActions();
+  const { fetchUsers } = useUsersActions();
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
@@ -103,7 +105,7 @@ const ActivitiesContent = () => {
         fetchOpportunities({ pageNumber: 1, pageSize: 100 }),
         fetchProposals({ pageNumber: 1, pageSize: 100 }),
         fetchContracts({ pageNumber: 1, pageSize: 100 }),
-        fetchSalesPerformance(20),
+        fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
       ]);
       return;
     }
@@ -113,7 +115,7 @@ const ActivitiesContent = () => {
       fetchMyOpportunities({ pageNumber: 1, pageSize: 100 }),
       fetchProposals({ pageNumber: 1, pageSize: 100 }),
       fetchContracts({ pageNumber: 1, pageSize: 100 }),
-      fetchSalesPerformance(20),
+      fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
     ]);
   }, [
     canViewAll,
@@ -124,7 +126,7 @@ const ActivitiesContent = () => {
     fetchMyOpportunities,
     fetchProposals,
     fetchContracts,
-    fetchSalesPerformance,
+    fetchUsers,
   ]);
 
   useEffect(() => {
@@ -158,24 +160,23 @@ const ActivitiesContent = () => {
     createSubject?: string;
     createDescription?: string;
     createPriority?: number;
-    createDueDate?: string;
+    createDueDate?: Dayjs;
     createAssignedToId?: string;
     createRelatedType?: number;
     createRelatedId?: string;
   }) => {
     try {
-      if (values.createType && values.createSubject && canCreate) {
-        await createActivity({
-          type: values.createType as ActivityTypeValue,
-          subject: values.createSubject,
-          description: values.createDescription,
-          priority: values.createPriority as PriorityValue | undefined,
-          dueDate: values.createDueDate,
-          assignedToId: values.createAssignedToId,
-          relatedToType: values.createRelatedType as RelatedToTypeValue | undefined,
-          relatedToId: values.createRelatedId,
-        });
-      }
+      if (!canCreate) return;
+      await createActivity({
+        type: values.createType as ActivityTypeValue,
+        subject: values.createSubject,
+        description: values.createDescription,
+        priority: values.createPriority as PriorityValue | undefined,
+        dueDate: values.createDueDate?.format("YYYY-MM-DD"),
+        assignedToId: values.createAssignedToId,
+        relatedToType: values.createRelatedType as RelatedToTypeValue | undefined,
+        relatedToId: values.createRelatedId,
+      });
       await load();
       message.success("Activity created");
     } catch (error) {
@@ -200,7 +201,7 @@ const ActivitiesContent = () => {
     editForm.setFieldsValue({
       subject: activityRecord.subject,
       description: activityRecord.description,
-      dueDate: activityRecord.dueDate,
+      dueDate: activityRecord.dueDate ? dayjs(activityRecord.dueDate) : undefined,
     });
     setIsEditOpen(true);
   };
@@ -212,7 +213,7 @@ const ActivitiesContent = () => {
       await updateActivity(editingActivityId, {
         subject: values.subject,
         description: values.description,
-        dueDate: values.dueDate,
+        dueDate: values.dueDate ? (values.dueDate as Dayjs).format("YYYY-MM-DD") : undefined,
       });
       setIsEditOpen(false);
       setEditingActivityId(null);
@@ -254,7 +255,11 @@ const ActivitiesContent = () => {
           </Button>
           <Button
             size="small"
-            disabled={!canComplete}
+            disabled={
+              !canComplete ||
+              record.status === ActivityStatus.Completed ||
+              record.status === ActivityStatus.Cancelled
+            }
             onClick={() => onComplete(record.id)}
           >
             Complete
@@ -273,21 +278,19 @@ const ActivitiesContent = () => {
   ];
 
   const assigneeOptions = [
-    ...(user?.id
-      ? [
-          {
-            value: user.id,
-            label:
-              `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
-              user.email ||
-              "Current User",
-          },
-        ]
+    ...tenantUsers.map((entry) => ({
+      value: entry.id,
+      label: `${entry.fullName || `${entry.firstName} ${entry.lastName}`.trim() || entry.email} (${entry.id.slice(0, 8)})`,
+    })),
+    ...(user?.id && tenantUsers.every((entry) => entry.id !== user.id)
+      ? [{
+          value: user.id,
+          label:
+            `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
+            user.email ||
+            "Current User",
+        }]
       : []),
-    ...((Array.isArray(salesPerformance) ? salesPerformance : []).map((entry) => ({
-      value: entry.userId,
-      label: `${entry.userName} (${entry.userId.slice(0, 8)})`,
-    }))),
   ].filter(
     (candidate, index, self) =>
       self.findIndex((item) => item.value === candidate.value) === index
@@ -329,11 +332,6 @@ const ActivitiesContent = () => {
 
   return (
     <div style={capabilityStyles.container}>
-      <Card style={capabilityStyles.header}>
-        <div style={capabilityStyles.actions}>
-          <Button onClick={() => load()}>Refresh</Button>
-        </div>
-      </Card>
       <Collapse
         items={[
           {
@@ -341,7 +339,11 @@ const ActivitiesContent = () => {
             label: "Create Activity",
             children: (
               <Form form={createForm} layout="vertical" onFinish={onCreate}>
-                <Form.Item name="createType" label="Type">
+                <Form.Item
+                  name="createType"
+                  label="Type"
+                  rules={[{ required: true, message: "Select activity type" }]}
+                >
                   <Select
                     disabled={!canCreate}
                     options={Object.entries(ActivityTypeLabels).map(
@@ -352,7 +354,11 @@ const ActivitiesContent = () => {
                     )}
                   />
                 </Form.Item>
-                <Form.Item name="createSubject" label="Subject">
+                <Form.Item
+                  name="createSubject"
+                  label="Subject"
+                  rules={[{ required: true, message: "Enter activity subject" }]}
+                >
                   <Input disabled={!canCreate} />
                 </Form.Item>
                 <Form.Item name="createDescription" label="Description">
@@ -369,8 +375,12 @@ const ActivitiesContent = () => {
                     )}
                   />
                 </Form.Item>
-                <Form.Item name="createDueDate" label="Due Date (ISO)">
-                  <Input disabled={!canCreate} />
+                <Form.Item
+                  name="createDueDate"
+                  label="Due Date"
+                  rules={[{ required: true, message: "Select due date" }]}
+                >
+                  <DatePicker disabled={!canCreate} style={{ width: "100%" }} />
                 </Form.Item>
                 <Form.Item name="createAssignedToId" label="Assigned User ID">
                   <Select
@@ -453,8 +463,8 @@ const ActivitiesContent = () => {
           <Form.Item name="description" label="Description">
             <Input.TextArea disabled={!canCreate} />
           </Form.Item>
-          <Form.Item name="dueDate" label="Due Date (ISO)">
-            <Input disabled={!canCreate} />
+          <Form.Item name="dueDate" label="Due Date">
+            <DatePicker disabled={!canCreate} style={{ width: "100%" }} />
           </Form.Item>
         </Form>
       </Modal>
@@ -465,7 +475,7 @@ const ActivitiesContent = () => {
 export default function ActivitiesPage() {
   return (
     <AuthGuard>
-      <DashboardProvider>
+      <UsersProvider>
         <ClientProvider>
           <OpportunityProvider>
             <ProposalProvider>
@@ -477,7 +487,8 @@ export default function ActivitiesPage() {
             </ProposalProvider>
           </OpportunityProvider>
         </ClientProvider>
-      </DashboardProvider>
+      </UsersProvider>
     </AuthGuard>
   );
 }
+

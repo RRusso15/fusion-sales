@@ -232,7 +232,6 @@ const SalesWorkspace = () => {
           <Tag>{tenantId ?? currentUser?.tenantId ?? "No Tenant"}</Tag>
         </div>
         <div style={salesStyles.actions}>
-          <Button onClick={loadSalesData}>Refresh</Button>
           <Link href="/sales/contracts/expiring">
             <Button type="default">View Expiring Contracts</Button>
           </Link>

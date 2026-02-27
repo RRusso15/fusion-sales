@@ -151,7 +151,6 @@ const AdminWorkspace = () => {
           <Tag>{tenantId ?? currentUser?.tenantId ?? "No Tenant"}</Tag>
         </div>
         <div style={adminStyles.actions}>
-          <Button onClick={loadAdminData}>Refresh</Button>
           <Link href="/sales/contracts/expiring">
             <Button>Expiring Contracts Screen</Button>
           </Link>
