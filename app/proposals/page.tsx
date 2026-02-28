@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams } from "next/navigation";
 import {
   Button,
   Collapse,
@@ -39,6 +40,8 @@ import {
 } from "@/providers/opportunityProvider";
 
 const ProposalsContent = () => {
+  const params = useParams<{ clientId?: string }>();
+  const clientId = typeof params?.clientId === "string" ? params.clientId : undefined;
   const { role, user } = useAuthState();
   const { proposals, isPending } = useProposalState();
   const { clients } = useClientState();
@@ -58,14 +61,25 @@ const ProposalsContent = () => {
   const canCreate = hasPermission(activeRole, Permission.createProposal);
 
   const load = useCallback(async () => {
+    const proposalParams = {
+      pageNumber: 1,
+      pageSize: 20,
+      ...(clientId ? { clientId } : {}),
+    };
+    const opportunityParams = {
+      pageNumber: 1,
+      pageSize: 100,
+      ...(clientId ? { clientId } : {}),
+    };
     await Promise.all([
-      fetchProposals({ pageNumber: 1, pageSize: 20 }),
+      fetchProposals(proposalParams),
       fetchClients({ pageNumber: 1, pageSize: 100 }),
       hasPermission(activeRole, Permission.viewAllOpportunities)
-        ? fetchOpportunities({ pageNumber: 1, pageSize: 100 })
-        : fetchMyOpportunities({ pageNumber: 1, pageSize: 100 }),
+        ? fetchOpportunities(opportunityParams)
+        : fetchMyOpportunities(opportunityParams),
     ]);
   }, [
+    clientId,
     fetchProposals,
     fetchClients,
     fetchOpportunities,
@@ -96,10 +110,10 @@ const ProposalsContent = () => {
     createDescription?: string;
   }) => {
     try {
-      if (values.createOpportunityId && values.createClientId && values.createTitle && canCreate) {
+      if (values.createOpportunityId && (clientId || values.createClientId) && values.createTitle && canCreate) {
         await createProposal({
           opportunityId: values.createOpportunityId,
-          clientId: values.createClientId,
+          clientId: clientId ?? values.createClientId,
           title: values.createTitle,
           description: values.createDescription,
         });
@@ -227,17 +241,19 @@ const ProposalsContent = () => {
                     optionFilterProp="label"
                   />
                 </Form.Item>
-                <Form.Item name="createClientId" label="Client ID">
-                  <Select
-                    disabled={!canCreate}
-                    options={clients.map((client) => ({
-                      value: client.id,
-                      label: `${client.name} (${client.id.slice(0, 8)})`,
-                    }))}
-                    showSearch
-                    optionFilterProp="label"
-                  />
-                </Form.Item>
+                {!clientId ? (
+                  <Form.Item name="createClientId" label="Client ID">
+                    <Select
+                      disabled={!canCreate}
+                      options={clients.map((client) => ({
+                        value: client.id,
+                        label: `${client.name} (${client.id.slice(0, 8)})`,
+                      }))}
+                      showSearch
+                      optionFilterProp="label"
+                    />
+                  </Form.Item>
+                ) : null}
                 <Form.Item name="createTitle" label="Title">
                   <Input disabled={!canCreate} />
                 </Form.Item>
@@ -282,7 +298,7 @@ const ProposalsContent = () => {
   );
 };
 
-export default function ProposalsPage() {
+export function ProposalsModule() {
   return (
     <AuthGuard>
       <ClientProvider>
@@ -294,5 +310,9 @@ export default function ProposalsPage() {
       </ClientProvider>
     </AuthGuard>
   );
+}
+
+export default function ProposalsPage() {
+  return <ProposalsModule />;
 }
 

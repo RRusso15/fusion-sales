@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Button,
   Collapse,
@@ -42,7 +43,11 @@ import {
 } from "@/providers/usersProvider";
 import dayjs, { Dayjs } from "dayjs";
 
-const ContractsContent = () => {
+interface ContractsModuleProps {
+  clientId?: string;
+}
+
+const ContractsContent = ({ clientId }: ContractsModuleProps) => {
   const { role, user } = useAuthState();
   const { contracts, isPending } = useContractState();
   const { clients } = useClientState();
@@ -61,12 +66,17 @@ const ContractsContent = () => {
   const canCreate = hasPermission(activeRole, Permission.createContract);
 
   const load = useCallback(async () => {
+    const contractParams = {
+      pageNumber: 1,
+      pageSize: 100,
+      ...(clientId ? { clientId } : {}),
+    };
     await Promise.all([
-      fetchContracts({ pageNumber: 1, pageSize: 100 }),
-      fetchClients({ pageNumber: 1, pageSize: 100 }),
+      fetchContracts(contractParams),
+      ...(clientId ? [] : [fetchClients({ pageNumber: 1, pageSize: 100 })]),
       fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
     ]);
-  }, [fetchContracts, fetchClients, fetchUsers]);
+  }, [clientId, fetchContracts, fetchClients, fetchUsers]);
 
   useEffect(() => {
     if (loadedRef.current) return;
@@ -100,9 +110,9 @@ const ContractsContent = () => {
     renewalCompleteId?: string;
   }) => {
     try {
-      if (values.createClientId && values.createTitle && values.createValue !== undefined && values.createStartDate && values.createEndDate && canCreate) {
+      if ((clientId || values.createClientId) && values.createTitle && values.createValue !== undefined && values.createStartDate && values.createEndDate && canCreate) {
         await createContract({
-          clientId: values.createClientId,
+          clientId: clientId ?? values.createClientId,
           title: values.createTitle,
           contractValue: values.createValue,
           currency: values.createCurrency,
@@ -232,21 +242,23 @@ const ContractsContent = () => {
             label: "Create Contract",
             children: (
               <Form layout="vertical" onFinish={onCreateRenewal}>
-                <Form.Item
-                  name="createClientId"
-                  label="Client ID"
-                  rules={[{ required: true, message: "Select a client" }]}
-                >
-                  <Select
-                    disabled={!canCreate}
-                    options={clients.map((client) => ({
-                      value: client.id,
-                      label: `${client.name} (${client.id.slice(0, 8)})`,
-                    }))}
-                    showSearch
-                    optionFilterProp="label"
-                  />
-                </Form.Item>
+                {!clientId ? (
+                  <Form.Item
+                    name="createClientId"
+                    label="Client ID"
+                    rules={[{ required: true, message: "Select a client" }]}
+                  >
+                    <Select
+                      disabled={!canCreate}
+                      options={clients.map((client) => ({
+                        value: client.id,
+                        label: `${client.name} (${client.id.slice(0, 8)})`,
+                      }))}
+                      showSearch
+                      optionFilterProp="label"
+                    />
+                  </Form.Item>
+                ) : null}
                 <Form.Item
                   name="createTitle"
                   label="Title"
@@ -368,17 +380,25 @@ const ContractsContent = () => {
   );
 };
 
-export default function ContractsPage() {
+export function ContractsModule({ clientId }: ContractsModuleProps) {
   return (
     <AuthGuard>
       <UsersProvider>
         <ClientProvider>
           <ContractProvider>
-            <ContractsContent />
+            <ContractsContent clientId={clientId} />
           </ContractProvider>
         </ClientProvider>
       </UsersProvider>
     </AuthGuard>
   );
+}
+
+export default function ContractsPage() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/clients");
+  }, [router]);
+  return null;
 }
 

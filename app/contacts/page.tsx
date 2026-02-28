@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Button,
   Collapse,
@@ -32,11 +33,15 @@ import type { IContact } from "@/providers/contactProvider/context";
 import { capabilityStyles } from "../capability.styles";
 import { getErrorMessage } from "@/utils/requestError";
 
-const ContactsContent = () => {
+interface ContactsModuleProps {
+  clientId?: string;
+}
+
+const ContactsContent = ({ clientId }: ContactsModuleProps) => {
   const { role, user } = useAuthState();
   const { contacts, isPending } = useContactState();
   const { clients } = useClientState();
-  const { fetchContacts, createContact, updateContact, setPrimaryContact, deleteContact } = useContactActions();
+  const { fetchContacts, fetchContactsByClient, createContact, updateContact, setPrimaryContact, deleteContact } = useContactActions();
   const { fetchClients } = useClientActions();
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -49,11 +54,15 @@ const ContactsContent = () => {
   const canCreate = hasPermission(activeRole, Permission.createContact);
 
   const load = useCallback(async () => {
+    if (clientId) {
+      await fetchContactsByClient(clientId);
+      return;
+    }
     await Promise.all([
       fetchContacts({ pageNumber: 1, pageSize: 20 }),
       fetchClients({ pageNumber: 1, pageSize: 100 }),
     ]);
-  }, [fetchContacts, fetchClients]);
+  }, [clientId, fetchContactsByClient, fetchContacts, fetchClients]);
 
   useEffect(() => {
     if (loadedRef.current) return;
@@ -81,9 +90,9 @@ const ContactsContent = () => {
     createPrimary?: boolean;
   }) => {
     try {
-      if (values.createClientId && values.createFirstName && values.createLastName && canCreate) {
+      if ((clientId || values.createClientId) && values.createFirstName && values.createLastName && canCreate) {
         await createContact({
-          clientId: values.createClientId,
+          clientId: clientId ?? values.createClientId,
           firstName: values.createFirstName,
           lastName: values.createLastName,
           email: values.createEmail,
@@ -171,17 +180,19 @@ const ContactsContent = () => {
             label: "Create Contact",
             children: (
               <Form layout="vertical" onFinish={onCreate}>
-                <Form.Item name="createClientId" label="Client ID">
-                  <Select
-                    disabled={!canCreate}
-                    options={clients.map((client) => ({
-                      value: client.id,
-                      label: `${client.name} (${client.id.slice(0, 8)})`,
-                    }))}
-                    showSearch
-                    optionFilterProp="label"
-                  />
-                </Form.Item>
+                {!clientId ? (
+                  <Form.Item name="createClientId" label="Client ID">
+                    <Select
+                      disabled={!canCreate}
+                      options={clients.map((client) => ({
+                        value: client.id,
+                        label: `${client.name} (${client.id.slice(0, 8)})`,
+                      }))}
+                      showSearch
+                      optionFilterProp="label"
+                    />
+                  </Form.Item>
+                ) : null}
                 <Form.Item name="createFirstName" label="First Name">
                   <Input disabled={!canCreate} />
                 </Form.Item>
@@ -250,15 +261,23 @@ const ContactsContent = () => {
   );
 };
 
-export default function ContactsPage() {
+export function ContactsModule({ clientId }: ContactsModuleProps) {
   return (
     <AuthGuard>
       <ClientProvider>
         <ContactProvider>
-          <ContactsContent />
+          <ContactsContent clientId={clientId} />
         </ContactProvider>
       </ClientProvider>
     </AuthGuard>
   );
+}
+
+export default function ContactsPage() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/clients");
+  }, [router]);
+  return null;
 }
 

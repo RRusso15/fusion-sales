@@ -14,6 +14,7 @@ import {
   message,
 } from "antd";
 import type { TableProps } from "antd";
+import { useRouter } from "next/navigation";
 import { AuthGuard } from "@/components/guards/AuthGuard";
 import { useAuthState } from "@/providers/authProvider";
 import { normalizeRole } from "@/constants/roles";
@@ -30,6 +31,7 @@ import { capabilityStyles } from "../capability.styles";
 import { getErrorMessage } from "@/utils/requestError";
 
 const ClientsContent = () => {
+  const router = useRouter();
   const { role, user } = useAuthState();
   const { clients, isPending } = useClientState();
   const { fetchClients, createClient, updateClient, deleteClient } = useClientActions();
@@ -132,6 +134,9 @@ const ClientsContent = () => {
       key: "actions",
       render: (_, record) => (
         <Space>
+          <Button size="small" onClick={() => router.push(`/clients/${record.id}/overview`)}>
+            Open Workspace
+          </Button>
           <Button size="small" onClick={() => openEdit(record)} disabled={!canCreate}>
             Edit
           </Button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams } from "next/navigation";
 import {
   Button,
   Collapse,
@@ -44,12 +45,15 @@ import {
 } from "@/providers/usersProvider";
 
 const PricingRequestsContent = () => {
+  const params = useParams<{ clientId?: string }>();
+  const clientId = typeof params?.clientId === "string" ? params.clientId : undefined;
   const { role, user } = useAuthState();
   const { pricingRequests, isPending } = usePricingState();
   const { clients } = useClientState();
   const { opportunities } = useOpportunityState();
   const { users: tenantUsers } = useUsersState();
   const {
+    fetchPricingRequests,
     fetchPendingRequests,
     fetchMyRequests,
     createPricingRequest,
@@ -72,6 +76,27 @@ const PricingRequestsContent = () => {
   const viewPending = activeRole === Roles.Admin || activeRole === Roles.SalesManager;
 
   const load = useCallback(async () => {
+    const pricingParams = {
+      pageNumber: 1,
+      pageSize: 100,
+      ...(clientId ? { clientId } : {}),
+    };
+    const opportunitiesParams = {
+      pageNumber: 1,
+      pageSize: 100,
+      ...(clientId ? { clientId } : {}),
+    };
+
+    if (clientId) {
+      await Promise.all([
+        fetchPricingRequests(pricingParams),
+        fetchClients({ pageNumber: 1, pageSize: 100 }),
+        fetchOpportunities(opportunitiesParams),
+        fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
+      ]);
+      return;
+    }
+
     if (viewPending) {
       await Promise.all([
         fetchPendingRequests(),
@@ -88,6 +113,8 @@ const PricingRequestsContent = () => {
       fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
     ]);
   }, [
+    clientId,
+    fetchPricingRequests,
     fetchMyRequests,
     fetchPendingRequests,
     viewPending,
@@ -132,11 +159,11 @@ const PricingRequestsContent = () => {
     createPriority?: number;
   }) => {
     try {
-      if (values.createTitle && values.createClientId && values.createRequestedById && canCreate) {
+      if (values.createTitle && (clientId || values.createClientId) && values.createRequestedById && canCreate) {
         await createPricingRequest({
           title: values.createTitle,
           description: values.createDescription,
-          clientId: values.createClientId,
+          clientId: clientId ?? values.createClientId,
           opportunityId: values.createOpportunityId,
           requestedById: values.createRequestedById,
           priority: values.createPriority as PriorityValue | undefined,
@@ -246,17 +273,19 @@ const PricingRequestsContent = () => {
                 <Form.Item name="createDescription" label="Description">
                   <Input.TextArea disabled={!canCreate} />
                 </Form.Item>
-                <Form.Item name="createClientId" label="Client ID">
-                  <Select
-                    disabled={!canCreate}
-                    options={clients.map((client) => ({
-                      value: client.id,
-                      label: `${client.name} (${client.id.slice(0, 8)})`,
-                    }))}
-                    showSearch
-                    optionFilterProp="label"
-                  />
-                </Form.Item>
+                {!clientId ? (
+                  <Form.Item name="createClientId" label="Client ID">
+                    <Select
+                      disabled={!canCreate}
+                      options={clients.map((client) => ({
+                        value: client.id,
+                        label: `${client.name} (${client.id.slice(0, 8)})`,
+                      }))}
+                      showSearch
+                      optionFilterProp="label"
+                    />
+                  </Form.Item>
+                ) : null}
                 <Form.Item name="createOpportunityId" label="Opportunity ID">
                   <Select
                     disabled={!canCreate}
@@ -341,7 +370,7 @@ const PricingRequestsContent = () => {
   );
 };
 
-export default function PricingRequestsPage() {
+export function PricingRequestsModule() {
   return (
     <AuthGuard>
       <UsersProvider>
@@ -355,5 +384,9 @@ export default function PricingRequestsPage() {
       </UsersProvider>
     </AuthGuard>
   );
+}
+
+export default function PricingRequestsPage() {
+  return <PricingRequestsModule />;
 }
 

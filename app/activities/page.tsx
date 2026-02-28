@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams } from "next/navigation";
 import {
   Button,
   Collapse,
@@ -67,6 +68,8 @@ import {
 import dayjs, { Dayjs } from "dayjs";
 
 const ActivitiesContent = () => {
+  const params = useParams<{ clientId?: string }>();
+  const clientId = typeof params?.clientId === "string" ? params.clientId : undefined;
   const { role, user } = useAuthState();
   const { activities, isPending } = useActivityState();
   const { clients } = useClientState();
@@ -98,11 +101,27 @@ const ActivitiesContent = () => {
   const canCreate = hasPermission(activeRole, Permission.createActivity);
 
   const load = useCallback(async () => {
+    const activityParams = {
+      pageNumber: 1,
+      pageSize: 20,
+      ...(clientId
+        ? { relatedToType: RelatedToType.Client, relatedToId: clientId }
+        : {}),
+    };
+    const opportunityParams = {
+      pageNumber: 1,
+      pageSize: 100,
+      ...(clientId ? { clientId } : {}),
+    };
+    const clientLoad = clientId
+      ? Promise.resolve()
+      : fetchClients({ pageNumber: 1, pageSize: 100 });
+
     if (canViewAll) {
       await Promise.all([
-        fetchActivities({ pageNumber: 1, pageSize: 20 }),
-        fetchClients({ pageNumber: 1, pageSize: 100 }),
-        fetchOpportunities({ pageNumber: 1, pageSize: 100 }),
+        fetchActivities(activityParams),
+        clientLoad,
+        fetchOpportunities(opportunityParams),
         fetchProposals({ pageNumber: 1, pageSize: 100 }),
         fetchContracts({ pageNumber: 1, pageSize: 100 }),
         fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
@@ -110,14 +129,15 @@ const ActivitiesContent = () => {
       return;
     }
     await Promise.all([
-      fetchMyActivities({ pageNumber: 1, pageSize: 20 }),
-      fetchClients({ pageNumber: 1, pageSize: 100 }),
-      fetchMyOpportunities({ pageNumber: 1, pageSize: 100 }),
+      fetchMyActivities(activityParams),
+      clientLoad,
+      fetchMyOpportunities(opportunityParams),
       fetchProposals({ pageNumber: 1, pageSize: 100 }),
       fetchContracts({ pageNumber: 1, pageSize: 100 }),
       fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
     ]);
   }, [
+    clientId,
     canViewAll,
     fetchActivities,
     fetchMyActivities,
@@ -174,8 +194,10 @@ const ActivitiesContent = () => {
         priority: values.createPriority as PriorityValue | undefined,
         dueDate: values.createDueDate?.format("YYYY-MM-DD"),
         assignedToId: values.createAssignedToId,
-        relatedToType: values.createRelatedType as RelatedToTypeValue | undefined,
-        relatedToId: values.createRelatedId,
+        relatedToType: clientId
+          ? RelatedToType.Client
+          : (values.createRelatedType as RelatedToTypeValue | undefined),
+        relatedToId: clientId ?? values.createRelatedId,
       });
       await load();
       message.success("Activity created");
@@ -390,25 +412,29 @@ const ActivitiesContent = () => {
                     optionFilterProp="label"
                   />
                 </Form.Item>
-                <Form.Item name="createRelatedType" label="Related Type">
-                  <Select
-                    disabled={!canCreate}
-                    options={Object.entries(RelatedToTypeLabels).map(
-                      ([value, label]) => ({
-                        value: Number(value),
-                        label,
-                      })
-                    )}
-                  />
-                </Form.Item>
-                <Form.Item name="createRelatedId" label="Related ID">
-                  <Select
-                    disabled={!canCreate || !createRelatedType}
-                    options={relatedOptions}
-                    showSearch
-                    optionFilterProp="label"
-                  />
-                </Form.Item>
+                {!clientId ? (
+                  <>
+                    <Form.Item name="createRelatedType" label="Related Type">
+                      <Select
+                        disabled={!canCreate}
+                        options={Object.entries(RelatedToTypeLabels).map(
+                          ([value, label]) => ({
+                            value: Number(value),
+                            label,
+                          })
+                        )}
+                      />
+                    </Form.Item>
+                    <Form.Item name="createRelatedId" label="Related ID">
+                      <Select
+                        disabled={!canCreate || !createRelatedType}
+                        options={relatedOptions}
+                        showSearch
+                        optionFilterProp="label"
+                      />
+                    </Form.Item>
+                  </>
+                ) : null}
                 <Button type="primary" htmlType="submit" disabled={!canCreate}>
                   Create Activity
                 </Button>
@@ -472,7 +498,7 @@ const ActivitiesContent = () => {
   );
 };
 
-export default function ActivitiesPage() {
+export function ActivitiesModule() {
   return (
     <AuthGuard>
       <UsersProvider>
@@ -490,5 +516,9 @@ export default function ActivitiesPage() {
       </UsersProvider>
     </AuthGuard>
   );
+}
+
+export default function ActivitiesPage() {
+  return <ActivitiesModule />;
 }
 

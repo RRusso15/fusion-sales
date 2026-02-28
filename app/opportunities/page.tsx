@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams } from "next/navigation";
 import {
   Button,
   Collapse,
@@ -51,6 +52,8 @@ import {
 } from "@/providers/usersProvider";
 
 const OpportunitiesContent = () => {
+  const params = useParams<{ clientId?: string }>();
+  const clientId = typeof params?.clientId === "string" ? params.clientId : undefined;
   const { role, user } = useAuthState();
   const { opportunities, isPending } = useOpportunityState();
   const { clients } = useClientState();
@@ -59,7 +62,7 @@ const OpportunitiesContent = () => {
   const { fetchOpportunities, fetchMyOpportunities, createOpportunity, updateOpportunity, assignOpportunity, moveStage } =
     useOpportunityActions();
   const { fetchClients } = useClientActions();
-  const { fetchContacts } = useContactActions();
+  const { fetchContacts, fetchContactsByClient } = useContactActions();
   const { fetchUsers } = useUsersActions();
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -76,26 +79,37 @@ const OpportunitiesContent = () => {
   const canAssign = hasPermission(activeRole, Permission.assignOpportunity);
 
   const load = useCallback(async () => {
+    const opportunitiesParams = {
+      pageNumber: 1,
+      pageSize: 20,
+      ...(clientId ? { clientId } : {}),
+    };
+    const contactLoad = clientId
+      ? fetchContactsByClient(clientId)
+      : fetchContacts({ pageNumber: 1, pageSize: 200 });
+
     if (canSeeAll) {
       await Promise.all([
-        fetchOpportunities({ pageNumber: 1, pageSize: 20 }),
+        fetchOpportunities(opportunitiesParams),
         fetchClients({ pageNumber: 1, pageSize: 100 }),
-        fetchContacts({ pageNumber: 1, pageSize: 200 }),
+        contactLoad,
         fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
       ]);
       return;
     }
     await Promise.all([
-      fetchMyOpportunities({ pageNumber: 1, pageSize: 20 }),
+      fetchMyOpportunities(opportunitiesParams),
       fetchClients({ pageNumber: 1, pageSize: 100 }),
-      fetchContacts({ pageNumber: 1, pageSize: 200 }),
+      contactLoad,
       fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
     ]);
   }, [
+    clientId,
     canSeeAll,
     fetchMyOpportunities,
     fetchOpportunities,
     fetchClients,
+    fetchContactsByClient,
     fetchContacts,
     fetchUsers,
   ]);
@@ -148,10 +162,10 @@ const OpportunitiesContent = () => {
     assignUserId?: string;
   }) => {
     try {
-      if (values.createTitle && values.createClientId && canCreate) {
+      if (values.createTitle && (clientId || values.createClientId) && canCreate) {
         await createOpportunity({
           title: values.createTitle,
-          clientId: values.createClientId,
+          clientId: clientId ?? values.createClientId,
           contactId: values.createContactId,
           estimatedValue: values.createValue,
           stage: values.createStage as OpportunityStageValue | undefined,
@@ -293,17 +307,19 @@ const OpportunitiesContent = () => {
                 <Form.Item name="createTitle" label="Title">
                   <Input disabled={!canCreate} />
                 </Form.Item>
-                <Form.Item name="createClientId" label="Client ID">
-                  <Select
-                    disabled={!canCreate}
-                    options={clients.map((client) => ({
-                      value: client.id,
-                      label: `${client.name} (${client.id.slice(0, 8)})`,
-                    }))}
-                    showSearch
-                    optionFilterProp="label"
-                  />
-                </Form.Item>
+                {!clientId ? (
+                  <Form.Item name="createClientId" label="Client ID">
+                    <Select
+                      disabled={!canCreate}
+                      options={clients.map((client) => ({
+                        value: client.id,
+                        label: `${client.name} (${client.id.slice(0, 8)})`,
+                      }))}
+                      showSearch
+                      optionFilterProp="label"
+                    />
+                  </Form.Item>
+                ) : null}
                 <Form.Item name="createContactId" label="Contact ID">
                   <Select
                     disabled={!canCreate}
@@ -410,7 +426,7 @@ const OpportunitiesContent = () => {
   );
 };
 
-export default function OpportunitiesPage() {
+export function OpportunitiesModule() {
   return (
     <AuthGuard>
       <UsersProvider>
@@ -424,5 +440,9 @@ export default function OpportunitiesPage() {
       </UsersProvider>
     </AuthGuard>
   );
+}
+
+export default function OpportunitiesPage() {
+  return <OpportunitiesModule />;
 }
 

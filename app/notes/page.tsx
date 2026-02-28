@@ -1,13 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button, Form, Input, Modal, Select, Space, Switch, Table, message } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
 import { getAxiosInstance } from "@/utils/axiosInstance";
 import { capabilityStyles } from "../capability.styles";
 import { getErrorMessage } from "@/utils/requestError";
-import { RelatedToTypeLabels, RelatedToTypeValue } from "@/constants/enums";
+import { RelatedToType, RelatedToTypeLabels, RelatedToTypeValue } from "@/constants/enums";
+
+interface NotesModuleProps {
+  clientId?: string;
+}
 
 interface NoteRow {
   id: string;
@@ -17,7 +22,7 @@ interface NoteRow {
   isPrivate?: boolean;
 }
 
-const NotesContent = () => {
+const NotesContent = ({ clientId }: NotesModuleProps) => {
   const axios = getAxiosInstance();
   const [rows, setRows] = useState<NoteRow[]>([]);
   const [isPending, setIsPending] = useState(false);
@@ -30,7 +35,13 @@ const NotesContent = () => {
     setIsPending(true);
     try {
       const response = await axios.get("/api/Notes", {
-        params: { pageNumber: 1, pageSize: 20 },
+        params: {
+          pageNumber: 1,
+          pageSize: 20,
+          ...(clientId
+            ? { relatedToType: RelatedToType.Client, relatedToId: clientId }
+            : {}),
+        },
       });
       const data = response.data;
       setRows(data.items ?? data);
@@ -39,7 +50,7 @@ const NotesContent = () => {
     } finally {
       setIsPending(false);
     }
-  }, [axios]);
+  }, [axios, clientId]);
 
   useEffect(() => {
     if (loadedRef.current) return;
@@ -64,8 +75,8 @@ const NotesContent = () => {
       const values = await editForm.validateFields();
       await axios.put(`/api/Notes/${editingNoteId}`, {
         content: values.content,
-        relatedToType: values.relatedToType,
-        relatedToId: values.relatedToId,
+        relatedToType: clientId ? RelatedToType.Client : values.relatedToType,
+        relatedToId: clientId ?? values.relatedToId,
         isPrivate: values.isPrivate,
       });
       message.success("Note updated");
@@ -145,18 +156,22 @@ const NotesContent = () => {
           >
             <Input.TextArea rows={4} />
           </Form.Item>
-          <Form.Item name="relatedToType" label="Related Type">
-            <Select
-              allowClear
-              options={Object.entries(RelatedToTypeLabels).map(([value, label]) => ({
-                value: Number(value) as RelatedToTypeValue,
-                label,
-              }))}
-            />
-          </Form.Item>
-          <Form.Item name="relatedToId" label="Related ID">
-            <Input />
-          </Form.Item>
+          {!clientId ? (
+            <>
+              <Form.Item name="relatedToType" label="Related Type">
+                <Select
+                  allowClear
+                  options={Object.entries(RelatedToTypeLabels).map(([value, label]) => ({
+                    value: Number(value) as RelatedToTypeValue,
+                    label,
+                  }))}
+                />
+              </Form.Item>
+              <Form.Item name="relatedToId" label="Related ID">
+                <Input />
+              </Form.Item>
+            </>
+          ) : null}
           <Form.Item name="isPrivate" label="Private" valuePropName="checked">
             <Switch />
           </Form.Item>
@@ -166,11 +181,19 @@ const NotesContent = () => {
   );
 };
 
-export default function NotesPage() {
+export function NotesModule({ clientId }: NotesModuleProps) {
   return (
     <AuthGuard>
-      <NotesContent />
+      <NotesContent clientId={clientId} />
     </AuthGuard>
   );
+}
+
+export default function NotesPage() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/clients");
+  }, [router]);
+  return null;
 }
 

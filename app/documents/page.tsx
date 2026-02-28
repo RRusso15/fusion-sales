@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Alert,
   Button,
@@ -29,6 +30,7 @@ import {
   DocumentCategoryLabels,
   OpportunitySource,
   OpportunityStage,
+  RelatedToType,
   RelatedToTypeLabels,
   DocumentCategoryValue,
   RelatedToTypeValue,
@@ -91,6 +93,10 @@ interface LeadExecutionForm {
 interface RelatedClientOption {
   id: string;
   name?: string | null;
+}
+
+interface DocumentsModuleProps {
+  clientId?: string;
 }
 
 const sourceToEnum: Record<NonNullable<LeadExecutionForm["source"]>, number> = {
@@ -164,7 +170,7 @@ const fetchJsonWithTimeout = async <T,>(
   }
 };
 
-const DocumentsContent = () => {
+const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
   const axios = getAxiosInstance();
   const { role, user } = useAuthState();
   const [rows, setRows] = useState<DocumentRow[]>([]);
@@ -193,7 +199,13 @@ const DocumentsContent = () => {
     setIsPending(true);
     try {
       const response = await axios.get("/api/Documents", {
-        params: { pageNumber: 1, pageSize: 20 },
+        params: {
+          pageNumber: 1,
+          pageSize: 20,
+          ...(clientId
+            ? { relatedToType: RelatedToType.Client, relatedToId: clientId }
+            : {}),
+        },
       });
       const data = response.data;
       setRows(data.items ?? data);
@@ -202,7 +214,7 @@ const DocumentsContent = () => {
     } finally {
       setIsPending(false);
     }
-  }, [axios]);
+  }, [axios, clientId]);
 
   const loadRelatedClients = useCallback(async () => {
     setRelatedClientsLoading(true);
@@ -277,10 +289,11 @@ const DocumentsContent = () => {
   }, [load]);
 
   useEffect(() => {
+    if (clientId) return;
     if (relatedToTypeValue !== 1) return;
     if (relatedClients.length > 0 || relatedClientsLoading) return;
     loadRelatedClients().catch(() => undefined);
-  }, [relatedClients.length, relatedClientsLoading, relatedToTypeValue, loadRelatedClients]);
+  }, [clientId, relatedClients.length, relatedClientsLoading, relatedToTypeValue, loadRelatedClients]);
 
   const onDelete = async (id: string) => {
     try {
@@ -629,7 +642,19 @@ const DocumentsContent = () => {
       if (values.documentCategory !== undefined) {
         formData.append("documentCategory", String(values.documentCategory));
       }
-      if (values.relatedToType !== undefined) {
+      const effectiveRelatedToType =
+        clientId ? RelatedToType.Client : values.relatedToType;
+      const effectiveRelatedToId = clientId ? clientId : values.relatedToId;
+
+      if (effectiveRelatedToType !== undefined && !effectiveRelatedToId) {
+        message.error("Select a related record.");
+        return;
+      }
+
+      if (effectiveRelatedToType !== undefined) {
+        formData.append("relatedToType", String(effectiveRelatedToType));
+        formData.append("relatedToId", effectiveRelatedToId as string);
+      } else if (values.relatedToType !== undefined) {
         formData.append("relatedToType", String(values.relatedToType));
         formData.append("relatedToId", values.relatedToId as string);
       }
@@ -679,54 +704,58 @@ const DocumentsContent = () => {
                     }))}
                   />
                 </Form.Item>
-                <Form.Item name="relatedToType" label="Related Type">
-                  <Select
-                    allowClear
-                    onChange={() => {
-                      form.setFieldValue("relatedToId", undefined);
-                    }}
-                    options={Object.entries(RelatedToTypeLabels).map(([value, label]) => ({
-                      value: Number(value),
-                      label,
-                    }))}
-                  />
-                </Form.Item>
-                <Form.Item
-                  name="relatedToId"
-                  label="Related ID"
-                  rules={[
-                    {
-                      validator: async (_, value) => {
-                        const selectedType = form.getFieldValue("relatedToType");
-                        if (selectedType !== undefined && !value) {
-                          throw new Error("Select a related record");
-                        }
-                      },
-                    },
-                  ]}
-                >
-                  {relatedToTypeValue === 1 ? (
-                    <Select
-                      showSearch
-                      allowClear
-                      loading={relatedClientsLoading}
-                      optionFilterProp="label"
-                      placeholder="Select client"
-                      options={relatedClients.map((client) => ({
-                        value: client.id,
-                        label: `${client.name || "Unnamed Client"} (${client.id.slice(0, 8)})`,
-                      }))}
-                    />
-                  ) : (
-                    <Input
-                      placeholder={
-                        relatedToTypeValue !== undefined
-                          ? "Enter related record ID"
-                          : "Select Related Type first"
-                      }
-                    />
-                  )}
-                </Form.Item>
+                {!clientId ? (
+                  <>
+                    <Form.Item name="relatedToType" label="Related Type">
+                      <Select
+                        allowClear
+                        onChange={() => {
+                          form.setFieldValue("relatedToId", undefined);
+                        }}
+                        options={Object.entries(RelatedToTypeLabels).map(([value, label]) => ({
+                          value: Number(value),
+                          label,
+                        }))}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name="relatedToId"
+                      label="Related ID"
+                      rules={[
+                        {
+                          validator: async (_, value) => {
+                            const selectedType = form.getFieldValue("relatedToType");
+                            if (selectedType !== undefined && !value) {
+                              throw new Error("Select a related record");
+                            }
+                          },
+                        },
+                      ]}
+                    >
+                      {relatedToTypeValue === 1 ? (
+                        <Select
+                          showSearch
+                          allowClear
+                          loading={relatedClientsLoading}
+                          optionFilterProp="label"
+                          placeholder="Select client"
+                          options={relatedClients.map((client) => ({
+                            value: client.id,
+                            label: `${client.name || "Unnamed Client"} (${client.id.slice(0, 8)})`,
+                          }))}
+                        />
+                      ) : (
+                        <Input
+                          placeholder={
+                            relatedToTypeValue !== undefined
+                              ? "Enter related record ID"
+                              : "Select Related Type first"
+                          }
+                        />
+                      )}
+                    </Form.Item>
+                  </>
+                ) : null}
                 <Form.Item name="description" label="Description">
                   <Input.TextArea rows={3} />
                 </Form.Item>
@@ -844,11 +873,19 @@ const DocumentsContent = () => {
   );
 };
 
-export default function DocumentsPage() {
+export function DocumentsModule({ clientId }: DocumentsModuleProps) {
   return (
     <AuthGuard>
-      <DocumentsContent />
+      <DocumentsContent clientId={clientId} />
     </AuthGuard>
   );
+}
+
+export default function DocumentsPage() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/clients");
+  }, [router]);
+  return null;
 }
 
