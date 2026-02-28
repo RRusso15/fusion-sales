@@ -16,9 +16,7 @@ import {
 } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
-import { useAuthState } from "@/providers/authProvider";
-import { normalizeRole } from "@/constants/roles";
-import { hasPermission, Permission } from "@/constants/permissions";
+import { usePermission } from "@/components/hooks/usePermission";
 import {
   ProposalProvider,
   useProposalActions,
@@ -42,23 +40,23 @@ import {
 const ProposalsContent = () => {
   const params = useParams<{ clientId?: string }>();
   const clientId = typeof params?.clientId === "string" ? params.clientId : undefined;
-  const { role, user } = useAuthState();
   const { proposals, isPending } = useProposalState();
   const { clients } = useClientState();
   const { opportunities } = useOpportunityState();
   const { fetchProposals, createProposal, updateProposal, submitProposal, approveProposal, rejectProposal } =
     useProposalActions();
   const { fetchClients } = useClientActions();
-  const { fetchOpportunities, fetchMyOpportunities } = useOpportunityActions();
+  const { fetchOpportunities } = useOpportunityActions();
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingProposalId, setEditingProposalId] = useState<string | null>(null);
+  const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
 
-  const activeRole = role ?? normalizeRole(user?.roles?.[0]);
-  const canApprove = hasPermission(activeRole, Permission.approveProposal);
-  const canReject = hasPermission(activeRole, Permission.rejectProposal);
-  const canCreate = hasPermission(activeRole, Permission.createProposal);
+  const { hasPermission, Permission } = usePermission();
+  const canApprove = hasPermission(Permission.approveProposal);
+  const canReject = hasPermission(Permission.rejectProposal);
+  const canCreate = hasPermission(Permission.createProposal);
 
   const load = useCallback(async () => {
     const proposalParams = {
@@ -74,17 +72,13 @@ const ProposalsContent = () => {
     await Promise.all([
       fetchProposals(proposalParams),
       fetchClients({ pageNumber: 1, pageSize: 100 }),
-      hasPermission(activeRole, Permission.viewAllOpportunities)
-        ? fetchOpportunities(opportunityParams)
-        : fetchMyOpportunities(opportunityParams),
+      fetchOpportunities(opportunityParams),
     ]);
   }, [
     clientId,
     fetchProposals,
     fetchClients,
     fetchOpportunities,
-    fetchMyOpportunities,
-    activeRole,
   ]);
 
   useEffect(() => {
@@ -117,6 +111,7 @@ const ProposalsContent = () => {
           title: values.createTitle,
           description: values.createDescription,
         });
+        createForm.resetFields();
       }
       await load();
       message.success("Proposal created");
@@ -170,51 +165,55 @@ const ProposalsContent = () => {
         const status = record.status ?? ProposalStatus.Draft;
         return (
           <Space>
-            <Button
-              size="small"
-              disabled={!canCreate || status !== ProposalStatus.Draft}
-              onClick={() => openEdit(record)}
-            >
-              Edit
-            </Button>
-            <Button
-              size="small"
-              disabled={status !== ProposalStatus.Draft}
-              onClick={() =>
-                runAction(
-                  () => submitProposal(record.id),
-                  "Proposal submitted for approval"
-                )
-              }
-            >
-              Submit
-            </Button>
-            <Button
-              size="small"
-              type="primary"
-              disabled={!canApprove || status !== ProposalStatus.Submitted}
-              onClick={() =>
-                runAction(
-                  () => approveProposal(record.id),
-                  "Proposal approved"
-                )
-              }
-            >
-              Approve
-            </Button>
-            <Button
-              size="small"
-              danger
-              disabled={!canReject || status !== ProposalStatus.Submitted}
-              onClick={() =>
-                runAction(
-                  () => rejectProposal(record.id, "Rejected from UI"),
-                  "Proposal rejected"
-                )
-              }
-            >
-              Reject
-            </Button>
+            {canCreate && status === ProposalStatus.Draft ? (
+              <Button
+                size="small"
+                onClick={() => openEdit(record)}
+              >
+                Edit
+              </Button>
+            ) : null}
+            {status === ProposalStatus.Draft ? (
+              <Button
+                size="small"
+                onClick={() =>
+                  runAction(
+                    () => submitProposal(record.id),
+                    "Proposal submitted for approval"
+                  )
+                }
+              >
+                Submit
+              </Button>
+            ) : null}
+            {canApprove && status === ProposalStatus.Submitted ? (
+              <Button
+                size="small"
+                type="primary"
+                onClick={() =>
+                  runAction(
+                    () => approveProposal(record.id),
+                    "Proposal approved"
+                  )
+                }
+              >
+                Approve
+              </Button>
+            ) : null}
+            {canReject && status === ProposalStatus.Submitted ? (
+              <Button
+                size="small"
+                danger
+                onClick={() =>
+                  runAction(
+                    () => rejectProposal(record.id, "Rejected from UI"),
+                    "Proposal rejected"
+                  )
+                }
+              >
+                Reject
+              </Button>
+            ) : null}
           </Space>
         );
       },
@@ -229,7 +228,7 @@ const ProposalsContent = () => {
             key: "create-proposal",
             label: "Create Proposal",
             children: (
-              <Form layout="vertical" onFinish={onCreate}>
+              <Form form={createForm} layout="vertical" onFinish={onCreate}>
                 <Form.Item name="createOpportunityId" label="Opportunity ID">
                   <Select
                     disabled={!canCreate}
@@ -260,9 +259,11 @@ const ProposalsContent = () => {
                 <Form.Item name="createDescription" label="Description">
                   <Input.TextArea disabled={!canCreate} />
                 </Form.Item>
-                <Button type="primary" htmlType="submit" disabled={!canCreate}>
-                  Create Proposal
-                </Button>
+                {canCreate ? (
+                  <Button type="primary" htmlType="submit" loading={isPending}>
+                    Create Proposal
+                  </Button>
+                ) : null}
               </Form>
             ),
           },
@@ -283,7 +284,7 @@ const ProposalsContent = () => {
           setEditingProposalId(null);
         }}
         onOk={onEditSave}
-        okButtonProps={{ disabled: !canCreate }}
+        okButtonProps={{ style: { display: canCreate ? "inline-flex" : "none" } }}
       >
         <Form form={editForm} layout="vertical">
           <Form.Item name="title" label="Title">

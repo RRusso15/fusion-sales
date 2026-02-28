@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Button, Form, Input, Modal, Select, Space, Switch, Table, message } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
+import { usePermission } from "@/components/hooks/usePermission";
+import { useAuthState } from "@/providers/authProvider";
 import { getAxiosInstance } from "@/utils/axiosInstance";
 import { capabilityStyles } from "../capability.styles";
 import { getErrorMessage } from "@/utils/requestError";
@@ -17,12 +19,15 @@ interface NotesModuleProps {
 interface NoteRow {
   id: string;
   content: string;
+  createdById?: string;
   relatedToType?: number;
   relatedToId?: string;
   isPrivate?: boolean;
 }
 
 const NotesContent = ({ clientId }: NotesModuleProps) => {
+  const { user } = useAuthState();
+  const { hasPermission, Permission } = usePermission();
   const axios = getAxiosInstance();
   const [rows, setRows] = useState<NoteRow[]>([]);
   const [isPending, setIsPending] = useState(false);
@@ -30,6 +35,7 @@ const NotesContent = ({ clientId }: NotesModuleProps) => {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editForm] = Form.useForm<NoteRow>();
   const loadedRef = useRef(false);
+  const canDeleteNotes = hasPermission(Permission.deleteNote);
 
   const load = useCallback(async () => {
     setIsPending(true);
@@ -104,27 +110,31 @@ const NotesContent = ({ clientId }: NotesModuleProps) => {
       key: "actions",
       render: (_, record) => (
         <Space>
-          <Button
-            size="small"
-            onClick={() => openEdit(record)}
-          >
-            Update
-          </Button>
-          <Button
-            size="small"
-            danger
-            onClick={async () => {
-              try {
-                await axios.delete(`/api/Notes/${record.id}`);
-                await load();
-                message.success("Note deleted");
-              } catch (error) {
-                message.error(getErrorMessage(error, "Unable to delete note"));
-              }
-            }}
-          >
-            Delete
-          </Button>
+          {!record.createdById || record.createdById === user?.id || canDeleteNotes ? (
+            <Button
+              size="small"
+              onClick={() => openEdit(record)}
+            >
+              Update
+            </Button>
+          ) : null}
+          {canDeleteNotes ? (
+            <Button
+              size="small"
+              danger
+              onClick={async () => {
+                try {
+                  await axios.delete(`/api/Notes/${record.id}`);
+                  await load();
+                  message.success("Note deleted");
+                } catch (error) {
+                  message.error(getErrorMessage(error, "Unable to delete note"));
+                }
+              }}
+            >
+              Delete
+            </Button>
+          ) : null}
         </Space>
       ),
     },

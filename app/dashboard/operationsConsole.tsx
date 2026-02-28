@@ -1,8 +1,7 @@
 "use client";
 
 import { Button, Card, Collapse, Form, Input, InputNumber, Select, Switch, message } from "antd";
-import { type RoleValue } from "@/constants/roles";
-import { hasPermission, Permission } from "@/constants/permissions";
+import { usePermission } from "@/components/hooks/usePermission";
 import { getErrorMessage } from "@/utils/requestError";
 import { useClientActions } from "@/providers/clientProvider";
 import { useContactActions } from "@/providers/contactProvider";
@@ -18,7 +17,8 @@ const pickDefined = <T extends Record<string, unknown>>(obj: T) =>
     Object.entries(obj).filter(([, value]) => value !== undefined && value !== "")
   ) as Partial<T>;
 
-export const OperationsConsole = ({ role }: { role?: RoleValue }) => {
+export const OperationsConsole = () => {
+  const { hasPermission: can, Permission } = usePermission();
   const client = useClientActions();
   const contact = useContactActions();
   const opportunity = useOpportunityActions();
@@ -85,7 +85,7 @@ export const OperationsConsole = ({ role }: { role?: RoleValue }) => {
                   <Select options={[1, 2, 3].map((n) => ({ value: n, label: `${n}` }))} />
                 </Form.Item>
                 <Form.Item name="deleteId" label="Delete: Client ID">
-                  <Input disabled={!hasPermission(role, Permission.deleteClient)} />
+                  <Input disabled={!can(Permission.deleteClient)} />
                 </Form.Item>
                 <Button htmlType="submit" type="primary">Run Client</Button>
               </Form>
@@ -130,7 +130,7 @@ export const OperationsConsole = ({ role }: { role?: RoleValue }) => {
                 <Form.Item name="updatePhone" label="Update: Phone"><Input /></Form.Item>
                 <Form.Item name="primaryId" label="Set Primary: Contact ID"><Input /></Form.Item>
                 <Form.Item name="deleteId" label="Delete: Contact ID">
-                  <Input disabled={!hasPermission(role, Permission.deleteContact)} />
+                  <Input disabled={!can(Permission.deleteContact)} />
                 </Form.Item>
                 <Button htmlType="submit" type="primary">Run Contact</Button>
               </Form>
@@ -173,9 +173,9 @@ export const OperationsConsole = ({ role }: { role?: RoleValue }) => {
                 <Form.Item name="stageId" label="Move Stage: Opportunity ID"><Input /></Form.Item>
                 <Form.Item name="stageTo" label="Move Stage: To"><Select options={[1, 2, 3, 4, 5, 6].map((n) => ({ value: n, label: `${n}` }))} /></Form.Item>
                 <Form.Item name="reason" label="Move Stage: Reason"><Input /></Form.Item>
-                <Form.Item name="assignId" label="Assign: Opportunity ID"><Input disabled={!hasPermission(role, Permission.assignOpportunity)} /></Form.Item>
-                <Form.Item name="assignUserId" label="Assign: User ID"><Input disabled={!hasPermission(role, Permission.assignOpportunity)} /></Form.Item>
-                <Form.Item name="deleteId" label="Delete: Opportunity ID"><Input disabled={!hasPermission(role, Permission.deleteClient)} /></Form.Item>
+                <Form.Item name="assignId" label="Assign: Opportunity ID"><Input disabled={!can(Permission.assignOpportunity)} /></Form.Item>
+                <Form.Item name="assignUserId" label="Assign: User ID"><Input disabled={!can(Permission.assignOpportunity)} /></Form.Item>
+                <Form.Item name="deleteId" label="Delete: Opportunity ID"><Input disabled={!can(Permission.deleteClient)} /></Form.Item>
                 <Button htmlType="submit" type="primary">Run Opportunity</Button>
               </Form>
             ),
@@ -207,8 +207,8 @@ export const OperationsConsole = ({ role }: { role?: RoleValue }) => {
                 <Form.Item name="clientId" label="Create: Client ID"><Input /></Form.Item>
                 <Form.Item name="requestedById" label="Create: Requested By ID"><Input /></Form.Item>
                 <Form.Item name="priority" label="Create: Priority"><Select options={[1, 2, 3, 4].map((n) => ({ value: n, label: `${n}` }))} /></Form.Item>
-                <Form.Item name="assignId" label="Assign: Pricing ID"><Input disabled={!hasPermission(role, Permission.assignPricingRequest)} /></Form.Item>
-                <Form.Item name="assignUserId" label="Assign: User ID"><Input disabled={!hasPermission(role, Permission.assignPricingRequest)} /></Form.Item>
+                <Form.Item name="assignId" label="Assign: Pricing ID"><Input disabled={!can(Permission.assignPricingRequest)} /></Form.Item>
+                <Form.Item name="assignUserId" label="Assign: User ID"><Input disabled={!can(Permission.assignPricingRequest)} /></Form.Item>
                 <Form.Item name="completeId" label="Complete: Pricing ID"><Input /></Form.Item>
                 <Button htmlType="submit" type="primary">Run Pricing</Button>
               </Form>
@@ -235,8 +235,8 @@ export const OperationsConsole = ({ role }: { role?: RoleValue }) => {
                 <Form.Item name="clientId" label="Create: Client ID"><Input /></Form.Item>
                 <Form.Item name="title" label="Create: Title"><Input /></Form.Item>
                 <Form.Item name="submitId" label="Submit: Proposal ID"><Input /></Form.Item>
-                <Form.Item name="approveId" label="Approve: Proposal ID"><Input disabled={!hasPermission(role, Permission.approveProposal)} /></Form.Item>
-                <Form.Item name="rejectId" label="Reject: Proposal ID"><Input disabled={!hasPermission(role, Permission.rejectProposal)} /></Form.Item>
+                <Form.Item name="approveId" label="Approve: Proposal ID"><Input disabled={!can(Permission.approveProposal)} /></Form.Item>
+                <Form.Item name="rejectId" label="Reject: Proposal ID"><Input disabled={!can(Permission.rejectProposal)} /></Form.Item>
                 <Form.Item name="rejectReason" label="Reject: Reason"><Input /></Form.Item>
                 <Button htmlType="submit" type="primary">Run Proposal</Button>
               </Form>
@@ -279,8 +279,8 @@ export const OperationsConsole = ({ role }: { role?: RoleValue }) => {
                 <Form.Item name="value" label="Create: Contract Value"><InputNumber style={{ width: "100%" }} /></Form.Item>
                 <Form.Item name="startDate" label="Create: Start Date (YYYY-MM-DD)"><Input /></Form.Item>
                 <Form.Item name="endDate" label="Create: End Date (YYYY-MM-DD)"><Input /></Form.Item>
-                <Form.Item name="activateId" label="Activate: Contract ID"><Input disabled={!hasPermission(role, Permission.activateContract)} /></Form.Item>
-                <Form.Item name="cancelId" label="Cancel: Contract ID"><Input disabled={!hasPermission(role, Permission.cancelContract)} /></Form.Item>
+                <Form.Item name="activateId" label="Activate: Contract ID"><Input disabled={!can(Permission.activateContract)} /></Form.Item>
+                <Form.Item name="cancelId" label="Cancel: Contract ID"><Input disabled={!can(Permission.cancelContract)} /></Form.Item>
                 <Form.Item name="renewalContractId" label="Renewal: Contract ID"><Input /></Form.Item>
                 <Form.Item name="renewalStart" label="Renewal: Start Date"><Input /></Form.Item>
                 <Form.Item name="renewalEnd" label="Renewal: End Date"><Input /></Form.Item>
@@ -319,7 +319,7 @@ export const OperationsConsole = ({ role }: { role?: RoleValue }) => {
                 <Form.Item name="dueDate" label="Create: Due Date (ISO)"><Input /></Form.Item>
                 <Form.Item name="completeId" label="Complete: Activity ID"><Input /></Form.Item>
                 <Form.Item name="outcome" label="Complete: Outcome"><Input /></Form.Item>
-                <Form.Item name="deleteId" label="Delete: Activity ID"><Input disabled={!hasPermission(role, Permission.deleteActivity)} /></Form.Item>
+                <Form.Item name="deleteId" label="Delete: Activity ID"><Input disabled={!can(Permission.deleteActivity)} /></Form.Item>
                 <Button htmlType="submit" type="primary">Run Activity</Button>
               </Form>
             ),

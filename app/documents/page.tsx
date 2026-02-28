@@ -21,9 +21,7 @@ import type { TableProps } from "antd";
 import type { UploadFile } from "antd/es/upload/interface";
 import { AuthGuard } from "@/components/guards/AuthGuard";
 import { getAxiosInstance } from "@/utils/axiosInstance";
-import { useAuthState } from "@/providers/authProvider";
-import { normalizeRole } from "@/constants/roles";
-import { hasPermission, Permission } from "@/constants/permissions";
+import { usePermission } from "@/components/hooks/usePermission";
 import { capabilityStyles } from "../capability.styles";
 import { getErrorMessage } from "@/utils/requestError";
 import {
@@ -172,7 +170,6 @@ const fetchJsonWithTimeout = async <T,>(
 
 const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
   const axios = getAxiosInstance();
-  const { role, user } = useAuthState();
   const [rows, setRows] = useState<DocumentRow[]>([]);
   const [isPending, setIsPending] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -191,9 +188,9 @@ const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
   const [analyzingDocumentId, setAnalyzingDocumentId] = useState<string | null>(null);
   const [applyingDocumentId, setApplyingDocumentId] = useState<string | null>(null);
 
-  const activeRole = role ?? normalizeRole(user?.roles?.[0]);
-  const canDelete = hasPermission(activeRole, Permission.deleteDocument);
-  const canCreateOpportunity = hasPermission(activeRole, Permission.createOpportunity);
+  const { hasPermission, Permission } = usePermission();
+  const canDelete = hasPermission(Permission.deleteDocument);
+  const canCreateOpportunity = hasPermission(Permission.createOpportunity);
 
   const load = useCallback(async () => {
     setIsPending(true);
@@ -613,14 +610,15 @@ const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
           >
             Download
           </Button>
-          <Button
-            size="small"
-            danger
-            disabled={!canDelete}
-            onClick={() => onDelete(record.id)}
-          >
-            Delete
-          </Button>
+          {canDelete ? (
+            <Button
+              size="small"
+              danger
+              onClick={() => onDelete(record.id)}
+            >
+              Delete
+            </Button>
+          ) : null}
         </Space>
       ),
     },

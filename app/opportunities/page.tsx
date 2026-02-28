@@ -17,9 +17,7 @@ import {
 } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
-import { useAuthState } from "@/providers/authProvider";
-import { normalizeRole } from "@/constants/roles";
-import { hasPermission, Permission } from "@/constants/permissions";
+import { usePermission } from "@/components/hooks/usePermission";
 import {
   OpportunityProvider,
   useOpportunityActions,
@@ -54,12 +52,11 @@ import {
 const OpportunitiesContent = () => {
   const params = useParams<{ clientId?: string }>();
   const clientId = typeof params?.clientId === "string" ? params.clientId : undefined;
-  const { role, user } = useAuthState();
   const { opportunities, isPending } = useOpportunityState();
   const { clients } = useClientState();
   const { contacts } = useContactState();
   const { users: tenantUsers } = useUsersState();
-  const { fetchOpportunities, fetchMyOpportunities, createOpportunity, updateOpportunity, assignOpportunity, moveStage } =
+  const { fetchOpportunities, createOpportunity, updateOpportunity, assignOpportunity, moveStage } =
     useOpportunityActions();
   const { fetchClients } = useClientActions();
   const { fetchContacts, fetchContactsByClient } = useContactActions();
@@ -71,12 +68,11 @@ const OpportunitiesContent = () => {
   const [createForm] = Form.useForm();
   const createClientId = Form.useWatch("createClientId", createForm);
 
-  const activeRole = role ?? normalizeRole(user?.roles?.[0]);
-  const canSeeAll = hasPermission(activeRole, Permission.viewAllOpportunities);
-  const canUpdateStage = hasPermission(activeRole, Permission.updateOpportunityStage);
-  const canCloseOpportunity = hasPermission(activeRole, Permission.closeOpportunity);
-  const canCreate = hasPermission(activeRole, Permission.createOpportunity);
-  const canAssign = hasPermission(activeRole, Permission.assignOpportunity);
+  const { hasPermission, Permission } = usePermission();
+  const canUpdateStage = hasPermission(Permission.updateOpportunityStage);
+  const canCloseOpportunity = hasPermission(Permission.closeOpportunity);
+  const canCreate = hasPermission(Permission.createOpportunity);
+  const canAssign = hasPermission(Permission.assignOpportunity);
 
   const load = useCallback(async () => {
     const opportunitiesParams = {
@@ -88,25 +84,14 @@ const OpportunitiesContent = () => {
       ? fetchContactsByClient(clientId)
       : fetchContacts({ pageNumber: 1, pageSize: 200 });
 
-    if (canSeeAll) {
-      await Promise.all([
-        fetchOpportunities(opportunitiesParams),
-        fetchClients({ pageNumber: 1, pageSize: 100 }),
-        contactLoad,
-        fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
-      ]);
-      return;
-    }
     await Promise.all([
-      fetchMyOpportunities(opportunitiesParams),
+      fetchOpportunities(opportunitiesParams),
       fetchClients({ pageNumber: 1, pageSize: 100 }),
       contactLoad,
       fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
     ]);
   }, [
     clientId,
-    canSeeAll,
-    fetchMyOpportunities,
     fetchOpportunities,
     fetchClients,
     fetchContactsByClient,
@@ -171,6 +156,7 @@ const OpportunitiesContent = () => {
           stage: values.createStage as OpportunityStageValue | undefined,
           source: values.createSource as OpportunitySourceValue | undefined,
         });
+        createForm.resetFields();
       }
       if (values.assignId && values.assignUserId && canAssign) {
         await assignOpportunity(values.assignId, values.assignUserId);
@@ -246,35 +232,40 @@ const OpportunitiesContent = () => {
 
         return (
           <Space>
-            <Button size="small" onClick={() => openEdit(record)} disabled={!canCreate}>
-              Edit
-            </Button>
-            <Button
-              size="small"
-              disabled={!canUpdateStage || closed}
-              onClick={() => handleAdvance(record.id)}
-            >
-              Advance
-            </Button>
-            <Button
-              size="small"
-              disabled={!canCloseOpportunity || closed}
-              onClick={() =>
-                handleClose(record.id, OpportunityStage.ClosedWon)
-              }
-            >
-              Close Won (5)
-            </Button>
-            <Button
-              size="small"
-              danger
-              disabled={!canCloseOpportunity || closed}
-              onClick={() =>
-                handleClose(record.id, OpportunityStage.ClosedLost)
-              }
-            >
-              Close Lost (6)
-            </Button>
+            {canCreate ? (
+              <Button size="small" onClick={() => openEdit(record)}>
+                Edit
+              </Button>
+            ) : null}
+            {canUpdateStage && !closed ? (
+              <Button
+                size="small"
+                onClick={() => handleAdvance(record.id)}
+              >
+                Advance
+              </Button>
+            ) : null}
+            {canCloseOpportunity && !closed ? (
+              <Button
+                size="small"
+                onClick={() =>
+                  handleClose(record.id, OpportunityStage.ClosedWon)
+                }
+              >
+                Close Won (5)
+              </Button>
+            ) : null}
+            {canCloseOpportunity && !closed ? (
+              <Button
+                size="small"
+                danger
+                onClick={() =>
+                  handleClose(record.id, OpportunityStage.ClosedLost)
+                }
+              >
+                Close Lost (6)
+              </Button>
+            ) : null}
           </Space>
         );
       },
@@ -352,9 +343,11 @@ const OpportunitiesContent = () => {
                     }))}
                   />
                 </Form.Item>
-                <Button type="primary" htmlType="submit" disabled={!canCreate}>
-                  Create Opportunity
-                </Button>
+                {canCreate ? (
+                  <Button type="primary" htmlType="submit" loading={isPending}>
+                    Create Opportunity
+                  </Button>
+                ) : null}
               </Form>
             ),
           },
@@ -385,9 +378,11 @@ const OpportunitiesContent = () => {
                     optionFilterProp="label"
                   />
                 </Form.Item>
-                <Button type="primary" htmlType="submit" disabled={!canAssign}>
-                  Assign Opportunity
-                </Button>
+                {canAssign ? (
+                  <Button type="primary" htmlType="submit" loading={isPending}>
+                    Assign Opportunity
+                  </Button>
+                ) : null}
               </Form>
             ),
           },
@@ -408,7 +403,7 @@ const OpportunitiesContent = () => {
           setEditingOpportunityId(null);
         }}
         onOk={onEditSave}
-        okButtonProps={{ disabled: !canCreate }}
+        okButtonProps={{ style: { display: canCreate ? "inline-flex" : "none" } }}
       >
         <Form form={editForm} layout="vertical">
           <Form.Item name="title" label="Title">

@@ -16,9 +16,7 @@ import {
 } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
-import { useAuthState } from "@/providers/authProvider";
-import { normalizeRole } from "@/constants/roles";
-import { hasPermission, Permission } from "@/constants/permissions";
+import { usePermission } from "@/components/hooks/usePermission";
 import {
   ContactProvider,
   useContactActions,
@@ -38,7 +36,6 @@ interface ContactsModuleProps {
 }
 
 const ContactsContent = ({ clientId }: ContactsModuleProps) => {
-  const { role, user } = useAuthState();
   const { contacts, isPending } = useContactState();
   const { clients } = useClientState();
   const { fetchContacts, fetchContactsByClient, createContact, updateContact, setPrimaryContact, deleteContact } = useContactActions();
@@ -46,12 +43,13 @@ const ContactsContent = ({ clientId }: ContactsModuleProps) => {
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
+  const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
 
-  const activeRole = role ?? normalizeRole(user?.roles?.[0]);
-  const canSetPrimary = hasPermission(activeRole, Permission.setPrimaryContact);
-  const canDelete = hasPermission(activeRole, Permission.deleteContact);
-  const canCreate = hasPermission(activeRole, Permission.createContact);
+  const { hasPermission, Permission } = usePermission();
+  const canSetPrimary = hasPermission(Permission.setPrimaryContact);
+  const canDelete = hasPermission(Permission.deleteContact);
+  const canCreate = hasPermission(Permission.createContact);
 
   const load = useCallback(async () => {
     if (clientId) {
@@ -100,6 +98,7 @@ const ContactsContent = ({ clientId }: ContactsModuleProps) => {
           position: values.createPosition,
           isPrimaryContact: values.createPrimary,
         });
+        createForm.resetFields();
       }
       await load();
       message.success("Contact created");
@@ -155,17 +154,20 @@ const ContactsContent = ({ clientId }: ContactsModuleProps) => {
       key: "actions",
       render: (_, record) => (
         <Space>
-          <Button size="small" onClick={() => openEdit(record)} disabled={!canCreate}>
-            Edit
-          </Button>
-          <Button
-            size="small"
-            danger
-            disabled={!canDelete}
-            onClick={() => onDelete(record.id)}
-          >
-            Delete
-          </Button>
+          {canCreate ? (
+            <Button size="small" onClick={() => openEdit(record)}>
+              Edit
+            </Button>
+          ) : null}
+          {canDelete ? (
+            <Button
+              size="small"
+              danger
+              onClick={() => onDelete(record.id)}
+            >
+              Delete
+            </Button>
+          ) : null}
         </Space>
       ),
     },
@@ -179,7 +181,7 @@ const ContactsContent = ({ clientId }: ContactsModuleProps) => {
             key: "create-contact",
             label: "Create Contact",
             children: (
-              <Form layout="vertical" onFinish={onCreate}>
+              <Form form={createForm} layout="vertical" onFinish={onCreate}>
                 {!clientId ? (
                   <Form.Item name="createClientId" label="Client ID">
                     <Select
@@ -211,9 +213,11 @@ const ContactsContent = ({ clientId }: ContactsModuleProps) => {
                 <Form.Item name="createPrimary" label="Is Primary" valuePropName="checked">
                   <Switch disabled={!canCreate} />
                 </Form.Item>
-                <Button type="primary" htmlType="submit" disabled={!canCreate}>
-                  Create Contact
-                </Button>
+                {canCreate ? (
+                  <Button type="primary" htmlType="submit" loading={isPending}>
+                    Create Contact
+                  </Button>
+                ) : null}
               </Form>
             ),
           },
@@ -234,7 +238,7 @@ const ContactsContent = ({ clientId }: ContactsModuleProps) => {
           setEditingContactId(null);
         }}
         onOk={onEditSave}
-        okButtonProps={{ disabled: !canCreate }}
+        okButtonProps={{ style: { display: canCreate ? "inline-flex" : "none" } }}
       >
         <Form form={editForm} layout="vertical">
           <Form.Item name="firstName" label="First Name">

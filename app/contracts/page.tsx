@@ -19,9 +19,7 @@ import {
 } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
-import { useAuthState } from "@/providers/authProvider";
-import { normalizeRole } from "@/constants/roles";
-import { hasPermission, Permission } from "@/constants/permissions";
+import { usePermission } from "@/components/hooks/usePermission";
 import {
   ContractProvider,
   useContractActions,
@@ -48,7 +46,6 @@ interface ContractsModuleProps {
 }
 
 const ContractsContent = ({ clientId }: ContractsModuleProps) => {
-  const { role, user } = useAuthState();
   const { contracts, isPending } = useContractState();
   const { clients } = useClientState();
   const { users: tenantUsers } = useUsersState();
@@ -58,12 +55,14 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingContractId, setEditingContractId] = useState<string | null>(null);
+  const [createForm] = Form.useForm();
+  const [renewalForm] = Form.useForm();
   const [editForm] = Form.useForm();
 
-  const activeRole = role ?? normalizeRole(user?.roles?.[0]);
-  const canActivate = hasPermission(activeRole, Permission.activateContract);
-  const canCancel = hasPermission(activeRole, Permission.cancelContract);
-  const canCreate = hasPermission(activeRole, Permission.createContract);
+  const { hasPermission, Permission } = usePermission();
+  const canActivate = hasPermission(Permission.activateContract);
+  const canCancel = hasPermission(Permission.cancelContract);
+  const canCreate = hasPermission(Permission.createContract);
 
   const load = useCallback(async () => {
     const contractParams = {
@@ -121,6 +120,7 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
           ownerId: values.createOwnerId,
           autoRenew: values.createAutoRenew,
         });
+        createForm.resetFields();
       }
       if (values.renewalContractId && values.renewalStartDate && values.renewalEndDate && values.renewalValue !== undefined && canCreate) {
         await createRenewal(values.renewalContractId, {
@@ -128,9 +128,11 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
           proposedEndDate: values.renewalEndDate.format("YYYY-MM-DD"),
           proposedValue: values.renewalValue,
         });
+        renewalForm.resetFields();
       }
       if (values.renewalCompleteId && canActivate) {
         await completeRenewal(values.renewalCompleteId);
+        renewalForm.resetFields(["renewalCompleteId"]);
       }
       await load();
       message.success("Contract action completed");
@@ -184,31 +186,35 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
       key: "actions",
       render: (_, record) => (
         <Space>
-          <Button size="small" onClick={() => openEdit(record)} disabled={!canCreate}>
-            Edit
-          </Button>
-          <Button
-            size="small"
-            disabled={record.status !== ContractStatus.Draft || !canActivate}
-            onClick={() =>
-              runAction(
-                () => activateContract(record.id),
-                "Contract activated"
-              )
-            }
-          >
-            Activate
-          </Button>
-          <Button
-            size="small"
-            danger
-            disabled={!canCancel}
-            onClick={() =>
-              runAction(() => cancelContract(record.id), "Contract cancelled")
-            }
-          >
-            Cancel
-          </Button>
+          {canCreate ? (
+            <Button size="small" onClick={() => openEdit(record)}>
+              Edit
+            </Button>
+          ) : null}
+          {canActivate && record.status === ContractStatus.Draft ? (
+            <Button
+              size="small"
+              onClick={() =>
+                runAction(
+                  () => activateContract(record.id),
+                  "Contract activated"
+                )
+              }
+            >
+              Activate
+            </Button>
+          ) : null}
+          {canCancel ? (
+            <Button
+              size="small"
+              danger
+              onClick={() =>
+                runAction(() => cancelContract(record.id), "Contract cancelled")
+              }
+            >
+              Cancel
+            </Button>
+          ) : null}
         </Space>
       ),
     },
@@ -219,15 +225,6 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
       value: entry.id,
       label: `${entry.fullName || `${entry.firstName} ${entry.lastName}`.trim() || entry.email} (${entry.id.slice(0, 8)})`,
     })),
-    ...(user?.id && tenantUsers.every((entry) => entry.id !== user.id)
-      ? [{
-          value: user.id,
-          label:
-            `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
-            user.email ||
-            "Current User",
-        }]
-      : []),
   ].filter(
     (candidate, index, self) =>
       self.findIndex((item) => item.value === candidate.value) === index
@@ -241,7 +238,7 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
             key: "create-contract",
             label: "Create Contract",
             children: (
-              <Form layout="vertical" onFinish={onCreateRenewal}>
+              <Form form={createForm} layout="vertical" onFinish={onCreateRenewal}>
                 {!clientId ? (
                   <Form.Item
                     name="createClientId"
@@ -305,9 +302,11 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
                 <Form.Item name="createAutoRenew" label="Auto Renew" valuePropName="checked">
                   <Switch disabled={!canCreate} />
                 </Form.Item>
-                <Button type="primary" htmlType="submit" disabled={!canCreate}>
-                  Create Contract
-                </Button>
+                {canCreate ? (
+                  <Button type="primary" htmlType="submit" loading={isPending}>
+                    Create Contract
+                  </Button>
+                ) : null}
               </Form>
             ),
           },
@@ -315,7 +314,7 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
             key: "renewal-contract",
             label: "Renewal Actions",
             children: (
-              <Form layout="vertical" onFinish={onCreateRenewal}>
+              <Form form={renewalForm} layout="vertical" onFinish={onCreateRenewal}>
                 <Form.Item name="renewalContractId" label="Renewal: Contract ID">
                   <Select
                     disabled={!canCreate}
@@ -339,9 +338,11 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
                 <Form.Item name="renewalCompleteId" label="Renewal Complete: Renewal ID">
                   <Input disabled={!canActivate} />
                 </Form.Item>
-                <Button type="primary" htmlType="submit" disabled={!canCreate && !canActivate}>
-                  Run Renewal Action
-                </Button>
+                {canCreate || canActivate ? (
+                  <Button type="primary" htmlType="submit" loading={isPending}>
+                    Run Renewal Action
+                  </Button>
+                ) : null}
               </Form>
             ),
           },
@@ -362,7 +363,7 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
           setEditingContractId(null);
         }}
         onOk={onEditSave}
-        okButtonProps={{ disabled: !canCreate }}
+        okButtonProps={{ style: { display: canCreate ? "inline-flex" : "none" } }}
       >
         <Form form={editForm} layout="vertical">
           <Form.Item name="title" label="Title">

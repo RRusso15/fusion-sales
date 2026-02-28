@@ -15,9 +15,7 @@ import {
 } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
-import { useAuthState } from "@/providers/authProvider";
-import { normalizeRole, Roles } from "@/constants/roles";
-import { hasPermission, Permission } from "@/constants/permissions";
+import { usePermission } from "@/components/hooks/usePermission";
 import {
   PricingProvider,
   usePricingActions,
@@ -47,33 +45,30 @@ import {
 const PricingRequestsContent = () => {
   const params = useParams<{ clientId?: string }>();
   const clientId = typeof params?.clientId === "string" ? params.clientId : undefined;
-  const { role, user } = useAuthState();
   const { pricingRequests, isPending } = usePricingState();
   const { clients } = useClientState();
   const { opportunities } = useOpportunityState();
   const { users: tenantUsers } = useUsersState();
   const {
     fetchPricingRequests,
-    fetchPendingRequests,
-    fetchMyRequests,
     createPricingRequest,
     updatePricingRequest,
     assignPricingRequest,
     completePricingRequest,
   } = usePricingActions();
   const { fetchClients } = useClientActions();
-  const { fetchOpportunities, fetchMyOpportunities } = useOpportunityActions();
+  const { fetchOpportunities } = useOpportunityActions();
   const { fetchUsers } = useUsersActions();
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingPricingId, setEditingPricingId] = useState<string | null>(null);
+  const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
 
-  const activeRole = role ?? normalizeRole(user?.roles?.[0]);
-  const canAssign = hasPermission(activeRole, Permission.assignPricingRequest);
-  const canComplete = hasPermission(activeRole, Permission.createPricingRequest);
-  const canCreate = hasPermission(activeRole, Permission.createPricingRequest);
-  const viewPending = activeRole === Roles.Admin || activeRole === Roles.SalesManager;
+  const { hasPermission, Permission } = usePermission();
+  const canAssign = hasPermission(Permission.assignPricingRequest);
+  const canComplete = hasPermission(Permission.createPricingRequest);
+  const canCreate = hasPermission(Permission.createPricingRequest);
 
   const load = useCallback(async () => {
     const pricingParams = {
@@ -87,40 +82,17 @@ const PricingRequestsContent = () => {
       ...(clientId ? { clientId } : {}),
     };
 
-    if (clientId) {
-      await Promise.all([
-        fetchPricingRequests(pricingParams),
-        fetchClients({ pageNumber: 1, pageSize: 100 }),
-        fetchOpportunities(opportunitiesParams),
-        fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
-      ]);
-      return;
-    }
-
-    if (viewPending) {
-      await Promise.all([
-        fetchPendingRequests(),
-        fetchClients({ pageNumber: 1, pageSize: 100 }),
-        fetchOpportunities({ pageNumber: 1, pageSize: 100 }),
-        fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
-      ]);
-      return;
-    }
     await Promise.all([
-      fetchMyRequests(),
+      fetchPricingRequests(pricingParams),
       fetchClients({ pageNumber: 1, pageSize: 100 }),
-      fetchMyOpportunities({ pageNumber: 1, pageSize: 100 }),
+      fetchOpportunities(opportunitiesParams),
       fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
     ]);
   }, [
     clientId,
     fetchPricingRequests,
-    fetchMyRequests,
-    fetchPendingRequests,
-    viewPending,
     fetchClients,
     fetchOpportunities,
-    fetchMyOpportunities,
     fetchUsers,
   ]);
 
@@ -168,6 +140,7 @@ const PricingRequestsContent = () => {
           requestedById: values.createRequestedById,
           priority: values.createPriority as PriorityValue | undefined,
         });
+        createForm.resetFields();
       }
       await load();
       message.success("Pricing request created");
@@ -227,32 +200,36 @@ const PricingRequestsContent = () => {
       key: "actions",
       render: (_, record) => (
         <Space>
-          <Button size="small" onClick={() => openEdit(record)} disabled={!canCreate}>
-            Edit
-          </Button>
-          <Select
-            placeholder="Assign User"
-            size="small"
-            disabled={!canAssign}
-            style={{ minWidth: 220 }}
-            options={[
-              ...tenantUsers.map((entry) => ({
-                value: entry.id,
-                label: `${entry.fullName || `${entry.firstName} ${entry.lastName}`.trim() || entry.email} (${entry.id.slice(0, 8)})`,
-              })),
-            ].filter(
-              (candidate, index, self) =>
-                self.findIndex((item) => item.value === candidate.value) === index
-            )}
-            onSelect={(value) => onAssign(record.id, String(value))}
-          />
-          <Button
-            size="small"
-            disabled={!canComplete}
-            onClick={() => onComplete(record.id)}
-          >
-            Complete
-          </Button>
+          {canCreate ? (
+            <Button size="small" onClick={() => openEdit(record)}>
+              Edit
+            </Button>
+          ) : null}
+          {canAssign ? (
+            <Select
+              placeholder="Assign User"
+              size="small"
+              style={{ minWidth: 220 }}
+              options={[
+                ...tenantUsers.map((entry) => ({
+                  value: entry.id,
+                  label: `${entry.fullName || `${entry.firstName} ${entry.lastName}`.trim() || entry.email} (${entry.id.slice(0, 8)})`,
+                })),
+              ].filter(
+                (candidate, index, self) =>
+                  self.findIndex((item) => item.value === candidate.value) === index
+              )}
+              onSelect={(value) => onAssign(record.id, String(value))}
+            />
+          ) : null}
+          {canComplete ? (
+            <Button
+              size="small"
+              onClick={() => onComplete(record.id)}
+            >
+              Complete
+            </Button>
+          ) : null}
         </Space>
       ),
     },
@@ -266,7 +243,7 @@ const PricingRequestsContent = () => {
             key: "create-pricing",
             label: "Create Pricing Request",
             children: (
-              <Form layout="vertical" onFinish={onCreate}>
+              <Form form={createForm} layout="vertical" onFinish={onCreate}>
                 <Form.Item name="createTitle" label="Title">
                   <Input disabled={!canCreate} />
                 </Form.Item>
@@ -323,9 +300,11 @@ const PricingRequestsContent = () => {
                     }))}
                   />
                 </Form.Item>
-                <Button type="primary" htmlType="submit" disabled={!canCreate}>
-                  Create Pricing Request
-                </Button>
+                {canCreate ? (
+                  <Button type="primary" htmlType="submit" loading={isPending}>
+                    Create Pricing Request
+                  </Button>
+                ) : null}
               </Form>
             ),
           },
@@ -346,7 +325,7 @@ const PricingRequestsContent = () => {
           setEditingPricingId(null);
         }}
         onOk={onEditSave}
-        okButtonProps={{ disabled: !canCreate }}
+        okButtonProps={{ style: { display: canCreate ? "inline-flex" : "none" } }}
       >
         <Form form={editForm} layout="vertical">
           <Form.Item name="title" label="Title">

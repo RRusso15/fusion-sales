@@ -16,9 +16,7 @@ import {
 } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
-import { useAuthState } from "@/providers/authProvider";
-import { normalizeRole, Roles } from "@/constants/roles";
-import { hasPermission, Permission } from "@/constants/permissions";
+import { usePermission } from "@/components/hooks/usePermission";
 import {
   ActivityProvider,
   useActivityActions,
@@ -70,17 +68,16 @@ import dayjs, { Dayjs } from "dayjs";
 const ActivitiesContent = () => {
   const params = useParams<{ clientId?: string }>();
   const clientId = typeof params?.clientId === "string" ? params.clientId : undefined;
-  const { role, user } = useAuthState();
   const { activities, isPending } = useActivityState();
   const { clients } = useClientState();
   const { opportunities } = useOpportunityState();
   const { proposals } = useProposalState();
   const { contracts } = useContractState();
   const { users: tenantUsers } = useUsersState();
-  const { fetchActivities, fetchMyActivities, createActivity, updateActivity, cancelActivity, completeActivity, deleteActivity } =
+  const { fetchActivities, createActivity, updateActivity, cancelActivity, completeActivity, deleteActivity } =
     useActivityActions();
   const { fetchClients } = useClientActions();
-  const { fetchOpportunities, fetchMyOpportunities } = useOpportunityActions();
+  const { fetchOpportunities } = useOpportunityActions();
   const { fetchProposals } = useProposalActions();
   const { fetchContracts } = useContractActions();
   const { fetchUsers } = useUsersActions();
@@ -91,14 +88,10 @@ const ActivitiesContent = () => {
   const [createForm] = Form.useForm();
   const createRelatedType = Form.useWatch("createRelatedType", createForm);
 
-  const activeRole = role ?? normalizeRole(user?.roles?.[0]);
-  const canViewAll =
-    activeRole === Roles.Admin ||
-    activeRole === Roles.SalesManager ||
-    activeRole === Roles.BusinessDevelopmentManager;
-  const canDelete = hasPermission(activeRole, Permission.deleteActivity);
-  const canComplete = hasPermission(activeRole, Permission.completeActivity);
-  const canCreate = hasPermission(activeRole, Permission.createActivity);
+  const { hasPermission, Permission } = usePermission();
+  const canDelete = hasPermission(Permission.deleteActivity);
+  const canComplete = hasPermission(Permission.completeActivity);
+  const canCreate = hasPermission(Permission.createActivity);
 
   const load = useCallback(async () => {
     const activityParams = {
@@ -117,33 +110,19 @@ const ActivitiesContent = () => {
       ? Promise.resolve()
       : fetchClients({ pageNumber: 1, pageSize: 100 });
 
-    if (canViewAll) {
-      await Promise.all([
-        fetchActivities(activityParams),
-        clientLoad,
-        fetchOpportunities(opportunityParams),
-        fetchProposals({ pageNumber: 1, pageSize: 100 }),
-        fetchContracts({ pageNumber: 1, pageSize: 100 }),
-        fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
-      ]);
-      return;
-    }
     await Promise.all([
-      fetchMyActivities(activityParams),
+      fetchActivities(activityParams),
       clientLoad,
-      fetchMyOpportunities(opportunityParams),
+      fetchOpportunities(opportunityParams),
       fetchProposals({ pageNumber: 1, pageSize: 100 }),
       fetchContracts({ pageNumber: 1, pageSize: 100 }),
       fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
     ]);
   }, [
     clientId,
-    canViewAll,
     fetchActivities,
-    fetchMyActivities,
     fetchClients,
     fetchOpportunities,
-    fetchMyOpportunities,
     fetchProposals,
     fetchContracts,
     fetchUsers,
@@ -199,6 +178,7 @@ const ActivitiesContent = () => {
           : (values.createRelatedType as RelatedToTypeValue | undefined),
         relatedToId: clientId ?? values.createRelatedId,
       });
+      createForm.resetFields();
       await load();
       message.success("Activity created");
     } catch (error) {
@@ -268,32 +248,33 @@ const ActivitiesContent = () => {
       key: "actions",
       render: (_, record) => (
         <Space>
-          <Button
-            size="small"
-            disabled={!canCreate}
-            onClick={() => openEdit(record)}
-          >
-            Edit
-          </Button>
-          <Button
-            size="small"
-            disabled={
-              !canComplete ||
-              record.status === ActivityStatus.Completed ||
-              record.status === ActivityStatus.Cancelled
-            }
-            onClick={() => onComplete(record.id)}
-          >
-            Complete
-          </Button>
-          <Button
-            size="small"
-            danger
-            disabled={!canDelete}
-            onClick={() => onDelete(record.id)}
-          >
-            Delete
-          </Button>
+          {canCreate ? (
+            <Button
+              size="small"
+              onClick={() => openEdit(record)}
+            >
+              Edit
+            </Button>
+          ) : null}
+          {canComplete &&
+          record.status !== ActivityStatus.Completed &&
+          record.status !== ActivityStatus.Cancelled ? (
+            <Button
+              size="small"
+              onClick={() => onComplete(record.id)}
+            >
+              Complete
+            </Button>
+          ) : null}
+          {canDelete ? (
+            <Button
+              size="small"
+              danger
+              onClick={() => onDelete(record.id)}
+            >
+              Delete
+            </Button>
+          ) : null}
         </Space>
       ),
     },
@@ -304,15 +285,6 @@ const ActivitiesContent = () => {
       value: entry.id,
       label: `${entry.fullName || `${entry.firstName} ${entry.lastName}`.trim() || entry.email} (${entry.id.slice(0, 8)})`,
     })),
-    ...(user?.id && tenantUsers.every((entry) => entry.id !== user.id)
-      ? [{
-          value: user.id,
-          label:
-            `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
-            user.email ||
-            "Current User",
-        }]
-      : []),
   ].filter(
     (candidate, index, self) =>
       self.findIndex((item) => item.value === candidate.value) === index
@@ -435,9 +407,11 @@ const ActivitiesContent = () => {
                     </Form.Item>
                   </>
                 ) : null}
-                <Button type="primary" htmlType="submit" disabled={!canCreate}>
-                  Create Activity
-                </Button>
+                {canCreate ? (
+                  <Button type="primary" htmlType="submit" loading={isPending}>
+                    Create Activity
+                  </Button>
+                ) : null}
               </Form>
             ),
           },
@@ -457,9 +431,11 @@ const ActivitiesContent = () => {
                     optionFilterProp="label"
                   />
                 </Form.Item>
-                <Button type="primary" htmlType="submit" disabled={!canCreate}>
-                  Cancel Activity
-                </Button>
+                {canCreate ? (
+                  <Button type="primary" htmlType="submit" loading={isPending}>
+                    Cancel Activity
+                  </Button>
+                ) : null}
               </Form>
             ),
           },
@@ -480,7 +456,7 @@ const ActivitiesContent = () => {
           setEditingActivityId(null);
         }}
         onOk={onEditSave}
-        okButtonProps={{ disabled: !canCreate }}
+        okButtonProps={{ style: { display: canCreate ? "inline-flex" : "none" } }}
       >
         <Form form={editForm} layout="vertical">
           <Form.Item name="subject" label="Subject">

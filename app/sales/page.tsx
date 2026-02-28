@@ -15,7 +15,7 @@ import {
 } from "antd";
 import type { TableProps } from "antd";
 import { useAuthActions, useAuthState } from "@/providers/authProvider";
-import { normalizeRole, Roles } from "@/constants/roles";
+import { normalizeRole } from "@/constants/roles";
 import {
   ActivityProvider,
   useActivityActions,
@@ -67,10 +67,6 @@ const SalesWorkspace = () => {
   const pricingActions = usePricingActions();
 
   const activeRole = role ?? normalizeRole(user?.roles?.[0]);
-  const canSeeTeamScope =
-    activeRole === Roles.Admin ||
-    activeRole === Roles.SalesManager ||
-    activeRole === Roles.BusinessDevelopmentManager;
 
   const handleRequestError = useCallback((error: unknown) => {
     const status = (error as { response?: { status?: number } })?.response?.status;
@@ -97,21 +93,13 @@ const SalesWorkspace = () => {
       dashboardActions.fetchActivitiesSummary(),
     ];
 
-    if (canSeeTeamScope) {
-      jobs.push(
-        opportunityActions.fetchOpportunities({ pageNumber: 1, pageSize: 8 }),
-        dashboardActions.fetchPipelineMetrics(),
-        dashboardActions.fetchSalesPerformance(5),
-        activityActions.fetchActivities({ pageNumber: 1, pageSize: 8 }),
-        pricingActions.fetchPendingRequests()
-      );
-    } else {
-      jobs.push(
-        opportunityActions.fetchMyOpportunities({ pageNumber: 1, pageSize: 8 }),
-        activityActions.fetchMyActivities({ pageNumber: 1, pageSize: 8 }),
-        pricingActions.fetchMyRequests()
-      );
-    }
+    jobs.push(
+      opportunityActions.fetchOpportunities({ pageNumber: 1, pageSize: 8 }),
+      dashboardActions.fetchPipelineMetrics(),
+      dashboardActions.fetchSalesPerformance(5),
+      activityActions.fetchActivities({ pageNumber: 1, pageSize: 8 }),
+      pricingActions.fetchPricingRequests({ pageNumber: 1, pageSize: 8 })
+    );
 
     try {
       await Promise.all(jobs);
@@ -120,7 +108,6 @@ const SalesWorkspace = () => {
     }
   }, [
     activityActions,
-    canSeeTeamScope,
     dashboardActions,
     handleRequestError,
     opportunityActions,
@@ -284,7 +271,7 @@ const SalesWorkspace = () => {
         />
       ) : null}
 
-      <Card title={canSeeTeamScope ? "Team Opportunities" : "My Opportunities"} style={salesStyles.section}>
+      <Card title="Opportunities" style={salesStyles.section}>
         <Table<IOpportunity>
           rowKey="id"
           columns={opportunityColumns}
@@ -294,7 +281,7 @@ const SalesWorkspace = () => {
         />
       </Card>
 
-      <Card title={canSeeTeamScope ? "Team Activities" : "My Activities"} style={salesStyles.section}>
+      <Card title="Activities" style={salesStyles.section}>
         <Table<IActivity>
           rowKey="id"
           columns={activityColumns}
@@ -304,10 +291,7 @@ const SalesWorkspace = () => {
         />
       </Card>
 
-      <Card
-        title={canSeeTeamScope ? "Pending Pricing Requests" : "My Pricing Requests"}
-        style={salesStyles.section}
-      >
+      <Card title="Pricing Requests" style={salesStyles.section}>
         <Table<IPricingRequest>
           rowKey="id"
           columns={pricingColumns}

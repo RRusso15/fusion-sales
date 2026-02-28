@@ -16,9 +16,7 @@ import {
 import type { TableProps } from "antd";
 import { useRouter } from "next/navigation";
 import { AuthGuard } from "@/components/guards/AuthGuard";
-import { useAuthState } from "@/providers/authProvider";
-import { normalizeRole } from "@/constants/roles";
-import { hasPermission, Permission } from "@/constants/permissions";
+import { usePermission } from "@/components/hooks/usePermission";
 import {
   ClientProvider,
   useClientActions,
@@ -32,17 +30,17 @@ import { getErrorMessage } from "@/utils/requestError";
 
 const ClientsContent = () => {
   const router = useRouter();
-  const { role, user } = useAuthState();
   const { clients, isPending } = useClientState();
   const { fetchClients, createClient, updateClient, deleteClient } = useClientActions();
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
+  const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
 
-  const activeRole = role ?? normalizeRole(user?.roles?.[0]);
-  const canDelete = hasPermission(activeRole, Permission.deleteClient);
-  const canCreate = hasPermission(activeRole, Permission.createClient);
+  const { hasPermission, Permission } = usePermission();
+  const canDelete = hasPermission(Permission.deleteClient);
+  const canCreate = hasPermission(Permission.createClient);
 
   const load = useCallback(async () => {
     await fetchClients({ pageNumber: 1, pageSize: 100, isActive: true });
@@ -78,6 +76,7 @@ const ClientsContent = () => {
           clientType: values.createType as ClientTypeValue | undefined,
           website: values.createWebsite,
         });
+        createForm.resetFields();
       }
       await load();
       message.success("Client created");
@@ -137,17 +136,20 @@ const ClientsContent = () => {
           <Button size="small" onClick={() => router.push(`/clients/${record.id}/overview`)}>
             Open Workspace
           </Button>
-          <Button size="small" onClick={() => openEdit(record)} disabled={!canCreate}>
-            Edit
-          </Button>
-          <Button
-            size="small"
-            danger
-            disabled={!canDelete}
-            onClick={() => onDelete(record.id)}
-          >
-            Delete
-          </Button>
+          {canCreate ? (
+            <Button size="small" onClick={() => openEdit(record)}>
+              Edit
+            </Button>
+          ) : null}
+          {canDelete ? (
+            <Button
+              size="small"
+              danger
+              onClick={() => onDelete(record.id)}
+            >
+              Delete
+            </Button>
+          ) : null}
         </Space>
       ),
     },
@@ -157,20 +159,20 @@ const ClientsContent = () => {
     <div style={capabilityStyles.container}>
       <Collapse
         items={[
-          {
+          ...(canCreate
+            ? [{
             key: "create-client",
             label: "Create Client",
             children: (
-              <Form layout="vertical" onFinish={onCreate}>
+              <Form form={createForm} layout="vertical" onFinish={onCreate}>
                 <Form.Item name="createName" label="Name">
-                  <Input disabled={!canCreate} />
+                  <Input />
                 </Form.Item>
                 <Form.Item name="createIndustry" label="Industry">
-                  <Input disabled={!canCreate} />
+                  <Input />
                 </Form.Item>
                 <Form.Item name="createType" label="Type">
                   <Select
-                    disabled={!canCreate}
                     options={[
                       { value: 1, label: "Government" },
                       { value: 2, label: "Private" },
@@ -179,14 +181,15 @@ const ClientsContent = () => {
                   />
                 </Form.Item>
                 <Form.Item name="createWebsite" label="Website">
-                  <Input disabled={!canCreate} />
+                  <Input />
                 </Form.Item>
-                <Button type="primary" htmlType="submit" disabled={!canCreate}>
+                <Button type="primary" htmlType="submit" loading={isPending}>
                   Create Client
                 </Button>
               </Form>
             ),
-          },
+          }]
+            : []),
         ]}
       />
       <Table<IClient>
@@ -204,18 +207,17 @@ const ClientsContent = () => {
           setEditingClientId(null);
         }}
         onOk={onEditSave}
-        okButtonProps={{ disabled: !canCreate }}
+        okButtonProps={{ style: { display: canCreate ? "inline-flex" : "none" } }}
       >
         <Form form={editForm} layout="vertical">
           <Form.Item name="name" label="Name">
-            <Input disabled={!canCreate} />
+            <Input />
           </Form.Item>
           <Form.Item name="industry" label="Industry">
-            <Input disabled={!canCreate} />
+            <Input />
           </Form.Item>
           <Form.Item name="clientType" label="Type">
             <Select
-              disabled={!canCreate}
               options={[
                 { value: 1, label: "Government" },
                 { value: 2, label: "Private" },
@@ -224,7 +226,7 @@ const ClientsContent = () => {
             />
           </Form.Item>
           <Form.Item name="website" label="Website">
-            <Input disabled={!canCreate} />
+            <Input />
           </Form.Item>
         </Form>
       </Modal>
