@@ -251,7 +251,7 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
   const ownerOptions = [
     ...tenantUsers.map((entry) => ({
       value: entry.id,
-      label: `${entry.fullName || `${entry.firstName} ${entry.lastName}`.trim() || entry.email} (${entry.id.slice(0, 8)})`,
+      label: `${entry.fullName || `${entry.firstName} ${entry.lastName}`.trim() || entry.email}`,
     })),
   ].filter(
     (candidate, index, self) =>
@@ -270,14 +270,14 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
                 {!clientId ? (
                   <Form.Item
                     name="createClientId"
-                    label="Client ID"
+                    label="Client"
                     rules={[{ required: true, message: "Select a client" }]}
                   >
                     <Select
                       disabled={!canCreate}
                       options={clients.map((client) => ({
                         value: client.id,
-                        label: `${client.name} (${client.id.slice(0, 8)})`,
+                        label: `${client.name}`,
                       }))}
                       showSearch
                       optionFilterProp="label"
@@ -319,7 +319,7 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
                 >
                   <DatePicker disabled={!canCreate} style={{ width: "100%" }} />
                 </Form.Item>
-                <Form.Item name="createOwnerId" label="Owner ID">
+                <Form.Item name="createOwnerId" label="Owner">
                   <Select
                     disabled={!canCreate}
                     options={ownerOptions}
@@ -343,12 +343,12 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
             label: "Renewal Actions",
             children: (
               <Form form={renewalForm} layout="vertical" onFinish={onCreateRenewal}>
-                <Form.Item name="renewalContractId" label="Renewal: Contract ID">
+                <Form.Item name="renewalContractId" label="Renewal Contract">
                   <Select
                     disabled={!canCreate}
                     options={contracts.map((contract) => ({
                       value: contract.id,
-                      label: `${contract.title} (${contract.id.slice(0, 8)})`,
+                      label: `${contract.title}`,
                     }))}
                     showSearch
                     optionFilterProp="label"
@@ -363,7 +363,7 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
                 <Form.Item name="renewalValue" label="Renewal: Proposed Value">
                   <InputNumber style={{ width: "100%" }} disabled={!canCreate} />
                 </Form.Item>
-                <Form.Item name="renewalCompleteId" label="Renewal Complete: Renewal ID">
+                <Form.Item name="renewalCompleteId" label="Renewal">
                   <Input disabled={!canActivate} />
                 </Form.Item>
                 {canCreate || canActivate ? (
@@ -430,5 +430,7 @@ export default function ContractsPage() {
   }, [router]);
   return null;
 }
+
+
 
 

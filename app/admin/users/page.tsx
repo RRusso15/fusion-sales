@@ -65,7 +65,7 @@ const AdminUsersContent = () => {
 
   const handleCreateUser = async (values: CreateUserForm) => {
     if (!activeTenantId) {
-      appMessage.error("Tenant ID missing in current session.");
+      appMessage.error("Tenant information missing in current session.");
       return;
     }
 
@@ -98,7 +98,7 @@ const AdminUsersContent = () => {
 
   const handleGenerateInviteLink = (values: InviteFormValues) => {
     if (!activeTenantId) {
-      appMessage.error("Tenant ID missing in current session.");
+      appMessage.error("Tenant information missing in current session.");
       return;
     }
 
@@ -182,7 +182,7 @@ const AdminUsersContent = () => {
           <Alert
             type="error"
             showIcon
-            title="Tenant ID missing in current session. Invite links cannot be generated."
+            title="Tenant information missing in current session. Invite links cannot be generated."
           />
         ) : null}
         <Form<InviteFormValues>
@@ -313,3 +313,4 @@ export default function AdminUsersPage() {
     </AuthGuard>
   );
 }
+

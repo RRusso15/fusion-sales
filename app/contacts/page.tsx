@@ -184,12 +184,12 @@ const ContactsContent = ({ clientId }: ContactsModuleProps) => {
             children: (
               <Form form={createForm} layout="vertical" onFinish={onCreate}>
                 {!clientId ? (
-                  <Form.Item name="createClientId" label="Client ID">
+                  <Form.Item name="createClientId" label="Client">
                     <Select
                       disabled={!canCreate}
                       options={clients.map((client) => ({
                         value: client.id,
-                        label: `${client.name} (${client.id.slice(0, 8)})`,
+                        label: `${client.name}`,
                       }))}
                       showSearch
                       optionFilterProp="label"
@@ -285,4 +285,6 @@ export default function ContactsPage() {
   }, [router]);
   return null;
 }
+
+
 

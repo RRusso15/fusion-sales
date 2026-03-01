@@ -25,7 +25,7 @@ export default function AdminSettingsPage() {
   const handleCreateUser = async (values: CreateUserForm) => {
     const activeTenantId = tenantId ?? currentUser?.tenantId;
     if (!activeTenantId) {
-      appMessage.error("Tenant ID missing in current session.");
+      appMessage.error("Tenant information missing in current session.");
       return;
     }
 
@@ -64,7 +64,7 @@ export default function AdminSettingsPage() {
           </Typography.Paragraph>
           <Row gutter={[16, 16]}>
             <Col xs={24} md={8}>
-              <Typography.Text type="secondary">Tenant ID</Typography.Text>
+              <Typography.Text type="secondary">Tenant</Typography.Text>
               <Typography.Paragraph copyable>
                 {tenantId ?? currentUser?.tenantId ?? "Not available"}
               </Typography.Paragraph>
@@ -172,3 +172,4 @@ export default function AdminSettingsPage() {
     </AuthGuard>
   );
 }
+

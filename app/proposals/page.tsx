@@ -283,24 +283,24 @@ const ProposalsContent = () => {
             label: "Create Proposal",
             children: (
               <Form form={createForm} layout="vertical" onFinish={onCreate}>
-                <Form.Item name="createOpportunityId" label="Opportunity ID">
+                <Form.Item name="createOpportunityId" label="Opportunity">
                   <Select
                     disabled={!canCreate}
                     options={opportunities.map((opportunity) => ({
                       value: opportunity.id,
-                      label: `${opportunity.title} (${opportunity.id.slice(0, 8)})`,
+                      label: `${opportunity.title}`,
                     }))}
                     showSearch
                     optionFilterProp="label"
                   />
                 </Form.Item>
                 {!clientId ? (
-                  <Form.Item name="createClientId" label="Client ID">
+                  <Form.Item name="createClientId" label="Client">
                     <Select
                       disabled={!canCreate}
                       options={clients.map((client) => ({
                         value: client.id,
-                        label: `${client.name} (${client.id.slice(0, 8)})`,
+                        label: `${client.name}`,
                       }))}
                       showSearch
                       optionFilterProp="label"
@@ -370,5 +370,7 @@ export function ProposalsModule() {
 export default function ProposalsPage() {
   return <ProposalsModule />;
 }
+
+
 
 

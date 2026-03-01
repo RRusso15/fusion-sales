@@ -79,13 +79,13 @@ export const OperationsConsole = () => {
                   <Select options={[1, 2, 3].map((n) => ({ value: n, label: `${n}` }))} />
                 </Form.Item>
                 <Form.Item name="createWebsite" label="Create: Website"><Input /></Form.Item>
-                <Form.Item name="updateId" label="Update: Client ID"><Input /></Form.Item>
+                <Form.Item name="updateId" label="Update: Client"><Input /></Form.Item>
                 <Form.Item name="updateName" label="Update: Name"><Input /></Form.Item>
                 <Form.Item name="updateIndustry" label="Update: Industry"><Input /></Form.Item>
                 <Form.Item name="updateType" label="Update: Type">
                   <Select options={[1, 2, 3].map((n) => ({ value: n, label: `${n}` }))} />
                 </Form.Item>
-                <Form.Item name="deleteId" label="Delete: Client ID">
+                <Form.Item name="deleteId" label="Delete: Client">
                   <Input disabled={!can(Permission.deleteClient)} />
                 </Form.Item>
                 <Button htmlType="submit" type="primary">Run Client</Button>
@@ -120,17 +120,17 @@ export const OperationsConsole = () => {
                   }, "Contact action(s) completed")
                 }
               >
-                <Form.Item name="clientId" label="Create: Client ID"><Input /></Form.Item>
+                <Form.Item name="clientId" label="Create: Client"><Input /></Form.Item>
                 <Form.Item name="firstName" label="Create: First Name"><Input /></Form.Item>
                 <Form.Item name="lastName" label="Create: Last Name"><Input /></Form.Item>
                 <Form.Item name="email" label="Create: Email"><Input /></Form.Item>
                 <Form.Item name="phone" label="Create: Phone"><Input /></Form.Item>
                 <Form.Item name="primary" label="Create: Is Primary" valuePropName="checked"><Switch /></Form.Item>
-                <Form.Item name="updateId" label="Update: Contact ID"><Input /></Form.Item>
+                <Form.Item name="updateId" label="Update: Contact"><Input /></Form.Item>
                 <Form.Item name="updateEmail" label="Update: Email"><Input /></Form.Item>
                 <Form.Item name="updatePhone" label="Update: Phone"><Input /></Form.Item>
-                <Form.Item name="primaryId" label="Set Primary: Contact ID"><Input /></Form.Item>
-                <Form.Item name="deleteId" label="Delete: Contact ID">
+                <Form.Item name="primaryId" label="Set Primary: Contact"><Input /></Form.Item>
+                <Form.Item name="deleteId" label="Delete: Contact">
                   <Input disabled={!can(Permission.deleteContact)} />
                 </Form.Item>
                 <Button htmlType="submit" type="primary">Run Contact</Button>
@@ -164,19 +164,19 @@ export const OperationsConsole = () => {
                 }
               >
                 <Form.Item name="title" label="Create: Title"><Input /></Form.Item>
-                <Form.Item name="clientId" label="Create: Client ID"><Input /></Form.Item>
+                <Form.Item name="clientId" label="Create: Client"><Input /></Form.Item>
                 <Form.Item name="value" label="Create: Value"><InputNumber style={{ width: "100%" }} /></Form.Item>
                 <Form.Item name="stage" label="Create: Stage"><Select options={[1, 2, 3, 4, 5, 6].map((n) => ({ value: n, label: `${n}` }))} /></Form.Item>
                 <Form.Item name="source" label="Create: Source"><Select options={[1, 2, 3, 4, 5].map((n) => ({ value: n, label: `${n}` }))} /></Form.Item>
-                <Form.Item name="updateId" label="Update: Opportunity ID"><Input /></Form.Item>
+                <Form.Item name="updateId" label="Update: Opportunity"><Input /></Form.Item>
                 <Form.Item name="updateTitle" label="Update: Title"><Input /></Form.Item>
                 <Form.Item name="updateValue" label="Update: Value"><InputNumber style={{ width: "100%" }} /></Form.Item>
-                <Form.Item name="stageId" label="Move Stage: Opportunity ID"><Input /></Form.Item>
+                <Form.Item name="stageId" label="Move Stage: Opportunity"><Input /></Form.Item>
                 <Form.Item name="stageTo" label="Move Stage: To"><Select options={[1, 2, 3, 4, 5, 6].map((n) => ({ value: n, label: `${n}` }))} /></Form.Item>
                 <Form.Item name="reason" label="Move Stage: Reason"><Input /></Form.Item>
-                <Form.Item name="assignId" label="Assign: Opportunity ID"><Input disabled={!can(Permission.assignOpportunity)} /></Form.Item>
-                <Form.Item name="assignUserId" label="Assign: User ID"><Input disabled={!can(Permission.assignOpportunity)} /></Form.Item>
-                <Form.Item name="deleteId" label="Delete: Opportunity ID"><Input disabled={!can(Permission.deleteClient)} /></Form.Item>
+                <Form.Item name="assignId" label="Assign: Opportunity"><Input disabled={!can(Permission.assignOpportunity)} /></Form.Item>
+                <Form.Item name="assignUserId" label="Assign: User"><Input disabled={!can(Permission.assignOpportunity)} /></Form.Item>
+                <Form.Item name="deleteId" label="Delete: Opportunity"><Input disabled={!can(Permission.deleteClient)} /></Form.Item>
                 <Button htmlType="submit" type="primary">Run Opportunity</Button>
               </Form>
             ),
@@ -205,12 +205,12 @@ export const OperationsConsole = () => {
                 }
               >
                 <Form.Item name="title" label="Create: Title"><Input /></Form.Item>
-                <Form.Item name="clientId" label="Create: Client ID"><Input /></Form.Item>
-                <Form.Item name="requestedById" label="Create: Requested By ID"><Input /></Form.Item>
+                <Form.Item name="clientId" label="Create: Client"><Input /></Form.Item>
+                <Form.Item name="requestedById" label="Create: Requested By"><Input /></Form.Item>
                 <Form.Item name="priority" label="Create: Priority"><Select options={[1, 2, 3, 4].map((n) => ({ value: n, label: `${n}` }))} /></Form.Item>
-                <Form.Item name="assignId" label="Assign: Pricing ID"><Input disabled={!can(Permission.assignPricingRequest)} /></Form.Item>
-                <Form.Item name="assignUserId" label="Assign: User ID"><Input disabled={!can(Permission.assignPricingRequest)} /></Form.Item>
-                <Form.Item name="completeId" label="Complete: Pricing ID"><Input /></Form.Item>
+                <Form.Item name="assignId" label="Assign: Pricing"><Input disabled={!can(Permission.assignPricingRequest)} /></Form.Item>
+                <Form.Item name="assignUserId" label="Assign: User"><Input disabled={!can(Permission.assignPricingRequest)} /></Form.Item>
+                <Form.Item name="completeId" label="Complete: Pricing"><Input /></Form.Item>
                 <Button htmlType="submit" type="primary">Run Pricing</Button>
               </Form>
             ),
@@ -232,12 +232,12 @@ export const OperationsConsole = () => {
                   }, "Proposal action(s) completed")
                 }
               >
-                <Form.Item name="opportunityId" label="Create: Opportunity ID"><Input /></Form.Item>
-                <Form.Item name="clientId" label="Create: Client ID"><Input /></Form.Item>
+                <Form.Item name="opportunityId" label="Create: Opportunity"><Input /></Form.Item>
+                <Form.Item name="clientId" label="Create: Client"><Input /></Form.Item>
                 <Form.Item name="title" label="Create: Title"><Input /></Form.Item>
-                <Form.Item name="submitId" label="Submit: Proposal ID"><Input /></Form.Item>
-                <Form.Item name="approveId" label="Approve: Proposal ID"><Input disabled={!can(Permission.approveProposal)} /></Form.Item>
-                <Form.Item name="rejectId" label="Reject: Proposal ID"><Input disabled={!can(Permission.rejectProposal)} /></Form.Item>
+                <Form.Item name="submitId" label="Submit: Proposal"><Input /></Form.Item>
+                <Form.Item name="approveId" label="Approve: Proposal"><Input disabled={!can(Permission.approveProposal)} /></Form.Item>
+                <Form.Item name="rejectId" label="Reject: Proposal"><Input disabled={!can(Permission.rejectProposal)} /></Form.Item>
                 <Form.Item name="rejectReason" label="Reject: Reason"><Input /></Form.Item>
                 <Button htmlType="submit" type="primary">Run Proposal</Button>
               </Form>
@@ -275,18 +275,18 @@ export const OperationsConsole = () => {
                   }, "Contract action(s) completed")
                 }
               >
-                <Form.Item name="clientId" label="Create: Client ID"><Input /></Form.Item>
+                <Form.Item name="clientId" label="Create: Client"><Input /></Form.Item>
                 <Form.Item name="title" label="Create: Title"><Input /></Form.Item>
                 <Form.Item name="value" label="Create: Contract Value"><InputNumber style={{ width: "100%" }} /></Form.Item>
                 <Form.Item name="startDate" label="Create: Start Date (YYYY-MM-DD)"><Input /></Form.Item>
                 <Form.Item name="endDate" label="Create: End Date (YYYY-MM-DD)"><Input /></Form.Item>
-                <Form.Item name="activateId" label="Activate: Contract ID"><Input disabled={!can(Permission.activateContract)} /></Form.Item>
-                <Form.Item name="cancelId" label="Cancel: Contract ID"><Input disabled={!can(Permission.cancelContract)} /></Form.Item>
-                <Form.Item name="renewalContractId" label="Renewal: Contract ID"><Input /></Form.Item>
+                <Form.Item name="activateId" label="Activate: Contract"><Input disabled={!can(Permission.activateContract)} /></Form.Item>
+                <Form.Item name="cancelId" label="Cancel: Contract"><Input disabled={!can(Permission.cancelContract)} /></Form.Item>
+                <Form.Item name="renewalContractId" label="Renewal Contract"><Input /></Form.Item>
                 <Form.Item name="renewalStart" label="Renewal: Start Date"><Input /></Form.Item>
                 <Form.Item name="renewalEnd" label="Renewal: End Date"><Input /></Form.Item>
                 <Form.Item name="renewalValue" label="Renewal: Value"><InputNumber style={{ width: "100%" }} /></Form.Item>
-                <Form.Item name="renewalCompleteId" label="Renewal: Complete ID"><Input /></Form.Item>
+                <Form.Item name="renewalCompleteId" label="Renewal: Complete"><Input /></Form.Item>
                 <Button htmlType="submit" type="primary">Run Contract</Button>
               </Form>
             ),
@@ -318,9 +318,9 @@ export const OperationsConsole = () => {
                 <Form.Item name="subject" label="Create: Subject"><Input /></Form.Item>
                 <Form.Item name="priority" label="Create: Priority"><Select options={[1, 2, 3, 4].map((n) => ({ value: n, label: `${n}` }))} /></Form.Item>
                 <Form.Item name="dueDate" label="Create: Due Date (ISO)"><Input /></Form.Item>
-                <Form.Item name="completeId" label="Complete: Activity ID"><Input /></Form.Item>
+                <Form.Item name="completeId" label="Complete: Activity"><Input /></Form.Item>
                 <Form.Item name="outcome" label="Complete: Outcome"><Input /></Form.Item>
-                <Form.Item name="deleteId" label="Delete: Activity ID"><Input disabled={!can(Permission.deleteActivity)} /></Form.Item>
+                <Form.Item name="deleteId" label="Delete: Activity"><Input disabled={!can(Permission.deleteActivity)} /></Form.Item>
                 <Button htmlType="submit" type="primary">Run Activity</Button>
               </Form>
             ),
@@ -330,6 +330,7 @@ export const OperationsConsole = () => {
     </Card>
   );
 };
+
 
 
 
