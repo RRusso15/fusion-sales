@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import {
-  Button,
+  Alert,
+  Button,
   Collapse,
   Form,
   Input,
@@ -41,6 +42,10 @@ import {
   useUsersActions,
   useUsersState,
 } from "@/providers/usersProvider";
+import {
+  PricingProposalPrefill,
+  workflowService,
+} from "@/utils/workflowService";
 
 const PricingRequestsContent = () => {
   const params = useParams<{ clientId?: string }>();
@@ -62,8 +67,12 @@ const PricingRequestsContent = () => {
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingPricingId, setEditingPricingId] = useState<string | null>(null);
+  const [pricingProposalPrefill, setPricingProposalPrefill] =
+    useState<PricingProposalPrefill | null>(null);
+  const [isProposalModalOpen, setIsProposalModalOpen] = useState(false);
   const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
+  const [proposalForm] = Form.useForm();
 
   const { hasPermission, Permission } = usePermission();
   const canAssign = hasPermission(Permission.assignPricingRequest);
@@ -115,10 +124,53 @@ const PricingRequestsContent = () => {
   const onComplete = async (id: string) => {
     try {
       await completePricingRequest(id);
+      try {
+        const prefill = await workflowService.handlePricingCompleted({
+          pricingRequestId: id,
+        });
+        setPricingProposalPrefill(prefill);
+      } catch (workflowError) {
+        console.error("Pricing complete workflow failed", workflowError);
+        message.warning("Primary action succeeded. Follow-up automation failed.");
+      }
       await load();
       message.success("Pricing request completed");
     } catch (error) {
       message.error(getErrorMessage(error, "Unable to complete pricing request"));
+    }
+  };
+
+  const handleOpenProposalModal = () => {
+    if (!pricingProposalPrefill) return;
+    proposalForm.setFieldsValue({
+      title: pricingProposalPrefill.proposalTitle,
+      description: pricingProposalPrefill.proposalDescription,
+      opportunityId: pricingProposalPrefill.opportunityId,
+      clientId: pricingProposalPrefill.clientId,
+      currency: pricingProposalPrefill.currency,
+    });
+    setIsProposalModalOpen(true);
+  };
+
+  const handleGenerateProposal = async () => {
+    if (!pricingProposalPrefill) return;
+    try {
+      const values = await proposalForm.validateFields();
+      await workflowService.createProposalFromPricing({
+        ...pricingProposalPrefill,
+        proposalTitle: values.title,
+        proposalDescription: values.description,
+        opportunityId: values.opportunityId,
+        clientId: values.clientId,
+        currency: values.currency,
+      });
+      setIsProposalModalOpen(false);
+      setPricingProposalPrefill(null);
+      await load();
+      message.success("Proposal generated from pricing request");
+    } catch (error) {
+      if ((error as { errorFields?: unknown })?.errorFields) return;
+      message.error(getErrorMessage(error, "Unable to generate proposal"));
     }
   };
 
@@ -237,6 +289,22 @@ const PricingRequestsContent = () => {
 
   return (
     <div style={capabilityStyles.container}>
+      {pricingProposalPrefill ? (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="Pricing request completed"
+          description={
+            <Space>
+              <span>Generate Proposal from Pricing</span>
+              <Button size="small" type="primary" onClick={handleOpenProposalModal}>
+                Generate Proposal from Pricing
+              </Button>
+            </Space>
+          }
+        />
+      ) : null}
       <Collapse
         items={[
           {
@@ -342,6 +410,42 @@ const PricingRequestsContent = () => {
                 label,
               }))}
             />
+          </Form.Item>
+        </Form>
+      </Modal>
+      <Modal
+        title="Generate Proposal from Pricing"
+        open={isProposalModalOpen}
+        onCancel={() => setIsProposalModalOpen(false)}
+        onOk={handleGenerateProposal}
+      >
+        <Form form={proposalForm} layout="vertical">
+          <Form.Item
+            name="title"
+            label="Proposal Title"
+            rules={[{ required: true, message: "Enter proposal title" }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item name="description" label="Description">
+            <Input.TextArea />
+          </Form.Item>
+          <Form.Item
+            name="opportunityId"
+            label="Opportunity ID"
+            rules={[{ required: true, message: "Opportunity is required" }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="clientId"
+            label="Client ID"
+            rules={[{ required: true, message: "Client is required" }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item name="currency" label="Currency">
+            <Input />
           </Form.Item>
         </Form>
       </Modal>

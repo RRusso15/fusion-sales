@@ -33,6 +33,7 @@ import {
 import { capabilityStyles } from "../capability.styles";
 import type { IOpportunity } from "@/providers/opportunityProvider/context";
 import { getErrorMessage } from "@/utils/requestError";
+import { workflowService } from "@/utils/workflowService";
 import {
   ClientProvider,
   useClientActions,
@@ -115,6 +116,15 @@ const OpportunitiesContent = () => {
       }
       const nextStage = (currentStage + 1) as OpportunityStageValue;
       await moveStage(id, nextStage, "Advanced from UI workflow");
+      try {
+        await workflowService.handleOpportunityStageChange({
+          opportunityId: id,
+          newStage: nextStage,
+        });
+      } catch (workflowError) {
+        console.error("Opportunity stage workflow failed", workflowError);
+        message.warning("Primary action succeeded. Follow-up automation failed.");
+      }
       await load();
       message.success("Stage advanced");
     } catch (error) {
@@ -125,6 +135,15 @@ const OpportunitiesContent = () => {
   const handleClose = async (id: string, stage: OpportunityStageValue) => {
     try {
       await moveStage(id, stage, "Closed via workflow");
+      try {
+        await workflowService.handleOpportunityStageChange({
+          opportunityId: id,
+          newStage: stage,
+        });
+      } catch (workflowError) {
+        console.error("Opportunity close workflow failed", workflowError);
+        message.warning("Primary action succeeded. Follow-up automation failed.");
+      }
       await load();
       message.success(
         stage === OpportunityStage.ClosedWon

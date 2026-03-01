@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CalendarOutlined,
   CheckCircleOutlined,
@@ -10,10 +10,10 @@ import {
   LogoutOutlined,
   RiseOutlined,
 } from "@ant-design/icons";
-import { Avatar, Button, Card, Col, Row, Space, Typography } from "antd";
+import { Avatar, Button, Card, Col, Row, Space, Typography, message } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
 import { useAuthActions, useAuthState } from "@/providers/authProvider";
-import { normalizeRole, Roles } from "@/constants/roles";
+import { resolveUserRole, Roles } from "@/constants/roles";
 import {
   DashboardProvider,
   useDashboardActions,
@@ -21,6 +21,8 @@ import {
 } from "@/providers/dashboardProvider";
 import { OpportunityStageLabels } from "@/constants/enums";
 import { capabilityStyles } from "../capability.styles";
+import { workflowService } from "@/utils/workflowService";
+import type { IContract } from "@/providers/contractProvider/context";
 
 type ChartDatum = {
   label: string;
@@ -193,7 +195,11 @@ const DashboardContent = () => {
     fetchSalesPerformance,
   } = useDashboardActions();
   const loadedRef = useRef(false);
-  const activeRole = role ?? normalizeRole(user?.roles?.[0]);
+  const activeRole = resolveUserRole(role, user?.roles);
+  const [expiringContractsForRenewal, setExpiringContractsForRenewal] = useState<
+    IContract[]
+  >([]);
+  const [renewingContractIds, setRenewingContractIds] = useState<string[]>([]);
   const salesPerformanceList = Array.isArray(salesPerformance)
     ? salesPerformance
     : [];
@@ -209,6 +215,16 @@ const DashboardContent = () => {
       jobs.push(fetchSalesPerformance(5));
     }
     await Promise.all(jobs);
+
+    try {
+      const expiringContracts = await workflowService.handleContractExpiring({
+        daysUntilExpiry: 90,
+      });
+      setExpiringContractsForRenewal(expiringContracts);
+    } catch (workflowError) {
+      console.error("Contract expiring workflow load failed", workflowError);
+      message.warning("Primary action succeeded. Follow-up automation failed.");
+    }
   }, [
     activeRole,
     fetchActivitiesSummary,
@@ -216,6 +232,7 @@ const DashboardContent = () => {
     fetchOverview,
     fetchPipelineMetrics,
     fetchSalesPerformance,
+    setExpiringContractsForRenewal,
   ]);
 
   useEffect(() => {
@@ -262,6 +279,25 @@ const DashboardContent = () => {
     label: item.userName,
     value: asNumber(item.totalRevenue),
   }));
+
+  const handleCreateRenewalOpportunity = async (contractId: string) => {
+    setRenewingContractIds((previous) => [...previous, contractId]);
+    try {
+      await workflowService.createRenewalOpportunity(contractId);
+      message.success("Renewal opportunity created.");
+      const refreshed = await workflowService.handleContractExpiring({
+        daysUntilExpiry: 90,
+      });
+      setExpiringContractsForRenewal(refreshed);
+    } catch (error) {
+      console.error("Renewal workflow failed", error);
+      message.warning("Primary action succeeded. Follow-up automation failed.");
+    } finally {
+      setRenewingContractIds((previous) =>
+        previous.filter((id) => id !== contractId)
+      );
+    }
+  };
 
   return (
     <div style={capabilityStyles.container}>
@@ -454,6 +490,38 @@ const DashboardContent = () => {
           ))}
         </Card>
       ) : null}
+
+      <Card title="Contract Renewals (Expiring in 90 Days)">
+        {expiringContractsForRenewal.length === 0 ? (
+          <Typography.Text type="secondary">
+            No contracts currently require renewal workflow.
+          </Typography.Text>
+        ) : (
+          <Space direction="vertical" style={{ width: "100%" }} size={10}>
+            {expiringContractsForRenewal.map((contract) => (
+              <div
+                key={contract.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 12,
+                }}
+              >
+                <Typography.Text>
+                  {contract.title ?? contract.id} ({contract.daysUntilExpiry ?? "-"} days left)
+                </Typography.Text>
+                <Button
+                  onClick={() => handleCreateRenewalOpportunity(contract.id)}
+                  loading={renewingContractIds.includes(contract.id)}
+                >
+                  Create Renewal Opportunity
+                </Button>
+              </div>
+            ))}
+          </Space>
+        )}
+      </Card>
     </div>
   );
 };

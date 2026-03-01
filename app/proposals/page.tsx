@@ -26,6 +26,7 @@ import { ProposalStatus, ProposalStatusLabels } from "@/constants/enums";
 import type { IProposal } from "@/providers/proposalProvider/context";
 import { capabilityStyles } from "../capability.styles";
 import { getErrorMessage } from "@/utils/requestError";
+import { workflowService } from "@/utils/workflowService";
 import {
   ClientProvider,
   useClientActions,
@@ -92,6 +93,22 @@ const ProposalsContent = () => {
       await fn();
       await load();
       message.success(successMessage);
+    } catch (error) {
+      message.error(getErrorMessage(error, "Action failed"));
+    }
+  };
+
+  const handleApprove = async (proposalId: string) => {
+    try {
+      await approveProposal(proposalId);
+      try {
+        await workflowService.handleProposalApproved({ proposalId });
+      } catch (workflowError) {
+        console.error("Proposal approval workflow failed", workflowError);
+        message.warning("Primary action succeeded. Follow-up automation failed.");
+      }
+      await load();
+      message.success("Proposal approved");
     } catch (error) {
       message.error(getErrorMessage(error, "Action failed"));
     }
@@ -190,12 +207,7 @@ const ProposalsContent = () => {
               <Button
                 size="small"
                 type="primary"
-                onClick={() =>
-                  runAction(
-                    () => approveProposal(record.id),
-                    "Proposal approved"
-                  )
-                }
+                onClick={() => handleApprove(record.id)}
               >
                 Approve
               </Button>

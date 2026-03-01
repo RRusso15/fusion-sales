@@ -64,6 +64,7 @@ import {
   useUsersState,
 } from "@/providers/usersProvider";
 import dayjs, { Dayjs } from "dayjs";
+import { workflowService } from "@/utils/workflowService";
 
 const ActivitiesContent = () => {
   const params = useParams<{ clientId?: string }>();
@@ -137,6 +138,12 @@ const ActivitiesContent = () => {
   const onComplete = async (id: string) => {
     try {
       await completeActivity(id, "Completed from activities module");
+      try {
+        await workflowService.handleActivityCompleted({ activityId: id });
+      } catch (workflowError) {
+        console.error("Activity complete workflow failed", workflowError);
+        message.warning("Primary action succeeded. Follow-up automation failed.");
+      }
       await load();
       message.success("Activity completed");
     } catch (error) {
