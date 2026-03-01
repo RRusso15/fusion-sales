@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Button,
+  App,
+  Button,
   Collapse,
   Form,
   Input,
@@ -12,7 +13,6 @@ import {
   Space,
   Switch,
   Table,
-  message,
 } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
@@ -36,6 +36,7 @@ interface ContactsModuleProps {
 }
 
 const ContactsContent = ({ clientId }: ContactsModuleProps) => {
+  const { message: appMessage } = App.useApp();
   const { contacts, isPending } = useContactState();
   const { clients } = useClientState();
   const { fetchContacts, fetchContactsByClient, createContact, updateContact, setPrimaryContact, deleteContact } = useContactActions();
@@ -72,9 +73,9 @@ const ContactsContent = ({ clientId }: ContactsModuleProps) => {
     try {
       await deleteContact(id);
       await load();
-      message.success("Contact deleted");
+      appMessage.success("Contact deleted");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to delete contact"));
+      appMessage.error(getErrorMessage(error, "Unable to delete contact"));
     }
   };
 
@@ -101,9 +102,9 @@ const ContactsContent = ({ clientId }: ContactsModuleProps) => {
         createForm.resetFields();
       }
       await load();
-      message.success("Contact created");
+      appMessage.success("Contact created");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to create contact"));
+      appMessage.error(getErrorMessage(error, "Unable to create contact"));
     }
   };
 
@@ -138,10 +139,10 @@ const ContactsContent = ({ clientId }: ContactsModuleProps) => {
       setIsEditOpen(false);
       setEditingContactId(null);
       await load();
-      message.success("Contact updated");
+      appMessage.success("Contact updated");
     } catch (error) {
       if ((error as { errorFields?: unknown })?.errorFields) return;
-      message.error(getErrorMessage(error, "Unable to update contact"));
+      appMessage.error(getErrorMessage(error, "Unable to update contact"));
     }
   };
 

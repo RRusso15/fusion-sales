@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import {
-  Button,
+  App,
+  Button,
   Collapse,
   Form,
   Input,
@@ -12,7 +13,6 @@ import {
   Space,
   Table,
   Tag,
-  message,
 } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
@@ -40,6 +40,7 @@ import {
 } from "@/providers/opportunityProvider";
 
 const ProposalsContent = () => {
+  const { message: appMessage } = App.useApp();
   const params = useParams<{ clientId?: string }>();
   const clientId = typeof params?.clientId === "string" ? params.clientId : undefined;
   const { proposals, isPending } = useProposalState();
@@ -94,9 +95,9 @@ const ProposalsContent = () => {
     try {
       await fn();
       await load();
-      message.success(successMessage);
+      appMessage.success(successMessage);
     } catch (error) {
-      message.error(getErrorMessage(error, "Action failed"));
+      appMessage.error(getErrorMessage(error, "Action failed"));
     }
   };
 
@@ -107,12 +108,12 @@ const ProposalsContent = () => {
         await workflowService.handleProposalApproved({ proposalId });
       } catch (workflowError) {
         console.error("Proposal approval workflow failed", workflowError);
-        message.warning("Primary action succeeded. Follow-up automation failed.");
+        appMessage.warning("Primary action succeeded. Follow-up automation failed.");
       }
       await load();
-      message.success("Proposal approved");
+      appMessage.success("Proposal approved");
     } catch (error) {
-      message.error(getErrorMessage(error, "Action failed"));
+      appMessage.error(getErrorMessage(error, "Action failed"));
     }
   };
 
@@ -133,9 +134,9 @@ const ProposalsContent = () => {
         createForm.resetFields();
       }
       await load();
-      message.success("Proposal created");
+      appMessage.success("Proposal created");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to create proposal"));
+      appMessage.error(getErrorMessage(error, "Unable to create proposal"));
     }
   };
 
@@ -160,10 +161,10 @@ const ProposalsContent = () => {
       setIsEditOpen(false);
       setEditingProposalId(null);
       await load();
-      message.success("Proposal updated");
+      appMessage.success("Proposal updated");
     } catch (error) {
       if ((error as { errorFields?: unknown })?.errorFields) return;
-      message.error(getErrorMessage(error, "Unable to update proposal"));
+      appMessage.error(getErrorMessage(error, "Unable to update proposal"));
     }
   };
 
@@ -171,9 +172,9 @@ const ProposalsContent = () => {
     setExportingProposalId(proposalId);
     try {
       await pdfService.generateProposalPdf(proposalId);
-      message.success("Download started");
+      appMessage.success("Download started");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to generate proposal PDF"));
+      appMessage.error(getErrorMessage(error, "Unable to generate proposal PDF"));
     } finally {
       setExportingProposalId(null);
     }
@@ -350,4 +351,5 @@ export function ProposalsModule() {
 export default function ProposalsPage() {
   return <ProposalsModule />;
 }
+
 

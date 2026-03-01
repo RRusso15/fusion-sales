@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Button, Card, Col, Form, Input, Row, Select, Space, Typography, message } from "antd";
+import { App, Button, Card, Col, Form, Input, Row, Select, Space, Typography } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
 import { Roles } from "@/constants/roles";
 import { useAuthState } from "@/providers/authProvider";
@@ -17,6 +17,7 @@ interface CreateUserForm {
 }
 
 export default function AdminSettingsPage() {
+  const { message: appMessage } = App.useApp();
   const { currentUser, tenantId } = useAuthState();
   const axios = getAxiosInstance();
   const [form] = Form.useForm<CreateUserForm>();
@@ -24,7 +25,7 @@ export default function AdminSettingsPage() {
   const handleCreateUser = async (values: CreateUserForm) => {
     const activeTenantId = tenantId ?? currentUser?.tenantId;
     if (!activeTenantId) {
-      message.error("Tenant ID missing in current session.");
+      appMessage.error("Tenant ID missing in current session.");
       return;
     }
 
@@ -38,25 +39,25 @@ export default function AdminSettingsPage() {
         tenantId: activeTenantId,
         role: values.role,
       });
-      message.success("User created successfully.");
+      appMessage.success("User created successfully.");
       form.resetFields();
     } catch (error) {
       const status = (error as { response?: { status?: number } })?.response?.status;
       if (status === 400) {
-        message.error("Validation error: check fields or duplicate email.");
+        appMessage.error("Validation error: check fields or duplicate email.");
         return;
       }
       if (status === 403) {
-        message.error("Access denied for this action.");
+        appMessage.error("Access denied for this action.");
         return;
       }
-      message.error("Unable to create user.");
+      appMessage.error("Unable to create user.");
     }
   };
 
   return (
     <AuthGuard requiredRoles={[Roles.Admin]} redirectTo="/unauthorized">
-      <Space direction="vertical" size={16} style={{ width: "100%" }}>
+      <Space orientation="vertical" size={16} style={{ width: "100%" }}>
         <Card>
           <Typography.Paragraph>
             Manage tenant context and organisation onboarding actions.

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Form, Input, Modal, Select, Space, Switch, Table, message } from "antd";
+import { App, Button, Form, Input, Modal, Select, Space, Switch, Table } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
 import { usePermission } from "@/components/hooks/usePermission";
@@ -26,6 +26,7 @@ interface NoteRow {
 }
 
 const NotesContent = ({ clientId }: NotesModuleProps) => {
+  const { message: appMessage } = App.useApp();
   const { user } = useAuthState();
   const { hasPermission, Permission } = usePermission();
   const axios = getAxiosInstance();
@@ -52,7 +53,7 @@ const NotesContent = ({ clientId }: NotesModuleProps) => {
       const data = response.data;
       setRows(data.items ?? data);
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to load notes"));
+      appMessage.error(getErrorMessage(error, "Unable to load notes"));
     } finally {
       setIsPending(false);
     }
@@ -85,13 +86,13 @@ const NotesContent = ({ clientId }: NotesModuleProps) => {
         relatedToId: clientId ?? values.relatedToId,
         isPrivate: values.isPrivate,
       });
-      message.success("Note updated");
+      appMessage.success("Note updated");
       setIsEditOpen(false);
       setEditingNoteId(null);
       await load();
     } catch (error) {
       if ((error as { errorFields?: unknown })?.errorFields) return;
-      message.error(getErrorMessage(error, "Unable to update note"));
+      appMessage.error(getErrorMessage(error, "Unable to update note"));
     }
   };
 
@@ -126,9 +127,9 @@ const NotesContent = ({ clientId }: NotesModuleProps) => {
                 try {
                   await axios.delete(`/api/Notes/${record.id}`);
                   await load();
-                  message.success("Note deleted");
+                  appMessage.success("Note deleted");
                 } catch (error) {
-                  message.error(getErrorMessage(error, "Unable to delete note"));
+                  appMessage.error(getErrorMessage(error, "Unable to delete note"));
                 }
               }}
             >

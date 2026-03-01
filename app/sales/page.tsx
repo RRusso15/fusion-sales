@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
+  App,
   Alert,
   Button,
   Card,
@@ -11,7 +12,6 @@ import {
   Table,
   Tag,
   Typography,
-  message,
 } from "antd";
 import type { TableProps } from "antd";
 import { useAuthActions, useAuthState } from "@/providers/authProvider";
@@ -52,6 +52,7 @@ import {
 import { salesStyles } from "./sales.styles";
 
 const SalesWorkspace = () => {
+  const { message: appMessage } = App.useApp();
   const { currentUser, user, role, tenantId } = useAuthState();
   const { logout } = useAuthActions();
   const { overview, contractsExpiring, isPending: dashboardPending } =
@@ -72,18 +73,18 @@ const SalesWorkspace = () => {
     const status = (error as { response?: { status?: number } })?.response?.status;
 
     if (status === 404) {
-      message.warning("Requested data was not found.");
+      appMessage.warning("Requested data was not found.");
       return;
     }
     if (status === 403) {
-      message.error("You are not authorized for this action.");
+      appMessage.error("You are not authorized for this action.");
       return;
     }
     if (status === 400) {
-      message.error("Validation error on request.");
+      appMessage.error("Validation error on request.");
       return;
     }
-    message.error("Unable to load dashboard data.");
+    appMessage.error("Unable to load dashboard data.");
   }, []);
 
   const loadSalesData = useCallback(async () => {
@@ -266,7 +267,7 @@ const SalesWorkspace = () => {
       {!activeRole ? (
         <Alert
           type="warning"
-          message="Role claim missing from token. Your view may be limited."
+          title="Role claim missing from token. Your view may be limited."
           showIcon
         />
       ) : null}

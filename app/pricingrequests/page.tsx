@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import {
+  App,
   Alert,
   Button,
   Collapse,
@@ -12,7 +13,6 @@ import {
   Select,
   Space,
   Table,
-  message,
 } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
@@ -48,6 +48,7 @@ import {
 } from "@/utils/workflowService";
 
 const PricingRequestsContent = () => {
+  const { message: appMessage } = App.useApp();
   const params = useParams<{ clientId?: string }>();
   const clientId = typeof params?.clientId === "string" ? params.clientId : undefined;
   const { pricingRequests, isPending } = usePricingState();
@@ -115,9 +116,9 @@ const PricingRequestsContent = () => {
     try {
       await assignPricingRequest(id, userId);
       await load();
-      message.success("Pricing request assigned");
+      appMessage.success("Pricing request assigned");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to assign pricing request"));
+      appMessage.error(getErrorMessage(error, "Unable to assign pricing request"));
     }
   };
 
@@ -131,12 +132,12 @@ const PricingRequestsContent = () => {
         setPricingProposalPrefill(prefill);
       } catch (workflowError) {
         console.error("Pricing complete workflow failed", workflowError);
-        message.warning("Primary action succeeded. Follow-up automation failed.");
+        appMessage.warning("Primary action succeeded. Follow-up automation failed.");
       }
       await load();
-      message.success("Pricing request completed");
+      appMessage.success("Pricing request completed");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to complete pricing request"));
+      appMessage.error(getErrorMessage(error, "Unable to complete pricing request"));
     }
   };
 
@@ -167,10 +168,10 @@ const PricingRequestsContent = () => {
       setIsProposalModalOpen(false);
       setPricingProposalPrefill(null);
       await load();
-      message.success("Proposal generated from pricing request");
+      appMessage.success("Proposal generated from pricing request");
     } catch (error) {
       if ((error as { errorFields?: unknown })?.errorFields) return;
-      message.error(getErrorMessage(error, "Unable to generate proposal"));
+      appMessage.error(getErrorMessage(error, "Unable to generate proposal"));
     }
   };
 
@@ -195,9 +196,9 @@ const PricingRequestsContent = () => {
         createForm.resetFields();
       }
       await load();
-      message.success("Pricing request created");
+      appMessage.success("Pricing request created");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to create pricing request"));
+      appMessage.error(getErrorMessage(error, "Unable to create pricing request"));
     }
   };
 
@@ -224,10 +225,10 @@ const PricingRequestsContent = () => {
       setIsEditOpen(false);
       setEditingPricingId(null);
       await load();
-      message.success("Pricing request updated");
+      appMessage.success("Pricing request updated");
     } catch (error) {
       if ((error as { errorFields?: unknown })?.errorFields) return;
-      message.error(getErrorMessage(error, "Unable to update pricing request"));
+      appMessage.error(getErrorMessage(error, "Unable to update pricing request"));
     }
   };
 
@@ -294,7 +295,7 @@ const PricingRequestsContent = () => {
           type="info"
           showIcon
           style={{ marginBottom: 16 }}
-          message="Pricing request completed"
+          title="Pricing request completed"
           description={
             <Space>
               <span>Generate Proposal from Pricing</span>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card, Collapse, Form, Input, InputNumber, Select, Switch, message } from "antd";
+import { App, Button, Card, Collapse, Form, Input, InputNumber, Select, Switch } from "antd";
 import { usePermission } from "@/components/hooks/usePermission";
 import { getErrorMessage } from "@/utils/requestError";
 import { useClientActions } from "@/providers/clientProvider";
@@ -18,6 +18,7 @@ const pickDefined = <T extends Record<string, unknown>>(obj: T) =>
   ) as Partial<T>;
 
 export const OperationsConsole = () => {
+  const { message: appMessage } = App.useApp();
   const { hasPermission: can, Permission } = usePermission();
   const client = useClientActions();
   const contact = useContactActions();
@@ -30,9 +31,9 @@ export const OperationsConsole = () => {
   const safeRun = async (fn: () => Promise<void>, ok: string) => {
     try {
       await fn();
-      message.success(ok);
+      appMessage.success(ok);
     } catch (error) {
-      message.error(getErrorMessage(error, "Operation failed"));
+      appMessage.error(getErrorMessage(error, "Operation failed"));
     }
   };
 
@@ -329,3 +330,11 @@ export const OperationsConsole = () => {
     </Card>
   );
 };
+
+
+
+
+
+
+
+

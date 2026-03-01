@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import {
+  App,
   Button,
   Collapse,
   DatePicker,
@@ -12,7 +13,6 @@ import {
   Select,
   Space,
   Table,
-  message,
 } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
@@ -67,6 +67,7 @@ import dayjs, { Dayjs } from "dayjs";
 import { workflowService } from "@/utils/workflowService";
 
 const ActivitiesContent = () => {
+  const { message: appMessage } = App.useApp();
   const params = useParams<{ clientId?: string }>();
   const clientId = typeof params?.clientId === "string" ? params.clientId : undefined;
   const { activities, isPending } = useActivityState();
@@ -142,12 +143,12 @@ const ActivitiesContent = () => {
         await workflowService.handleActivityCompleted({ activityId: id });
       } catch (workflowError) {
         console.error("Activity complete workflow failed", workflowError);
-        message.warning("Primary action succeeded. Follow-up automation failed.");
+        appMessage.warning("Primary action succeeded. Follow-up automation failed.");
       }
       await load();
-      message.success("Activity completed");
+      appMessage.success("Activity completed");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to complete activity"));
+      appMessage.error(getErrorMessage(error, "Unable to complete activity"));
     }
   };
 
@@ -155,9 +156,9 @@ const ActivitiesContent = () => {
     try {
       await deleteActivity(id);
       await load();
-      message.success("Activity deleted");
+      appMessage.success("Activity deleted");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to delete activity"));
+      appMessage.error(getErrorMessage(error, "Unable to delete activity"));
     }
   };
 
@@ -187,9 +188,9 @@ const ActivitiesContent = () => {
       });
       createForm.resetFields();
       await load();
-      message.success("Activity created");
+      appMessage.success("Activity created");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to save activity"));
+      appMessage.error(getErrorMessage(error, "Unable to save activity"));
     }
   };
 
@@ -198,9 +199,9 @@ const ActivitiesContent = () => {
       if (!values.cancelId || !canCreate) return;
       await cancelActivity(values.cancelId);
       await load();
-      message.success("Activity cancelled");
+      appMessage.success("Activity cancelled");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to cancel activity"));
+      appMessage.error(getErrorMessage(error, "Unable to cancel activity"));
     }
   };
 
@@ -227,10 +228,10 @@ const ActivitiesContent = () => {
       setIsEditOpen(false);
       setEditingActivityId(null);
       await load();
-      message.success("Activity updated");
+      appMessage.success("Activity updated");
     } catch (error) {
       if ((error as { errorFields?: unknown })?.errorFields) return;
-      message.error(getErrorMessage(error, "Unable to update activity"));
+      appMessage.error(getErrorMessage(error, "Unable to update activity"));
     }
   };
 
@@ -504,4 +505,13 @@ export function ActivitiesModule() {
 export default function ActivitiesPage() {
   return <ActivitiesModule />;
 }
+
+
+
+
+
+
+
+
+
 

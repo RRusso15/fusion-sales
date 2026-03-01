@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  App,
   Alert,
   Button,
   Collapse,
@@ -14,7 +15,6 @@ import {
   Space,
   Table,
   Upload,
-  message,
 } from "antd";
 import { UploadOutlined } from "@ant-design/icons";
 import type { TableProps } from "antd";
@@ -169,6 +169,7 @@ const fetchJsonWithTimeout = async <T,>(
 };
 
 const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
+  const { message: appMessage } = App.useApp();
   const axios = getAxiosInstance();
   const [rows, setRows] = useState<DocumentRow[]>([]);
   const [isPending, setIsPending] = useState(false);
@@ -207,7 +208,7 @@ const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
       const data = response.data;
       setRows(data.items ?? data);
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to load documents"));
+      appMessage.error(getErrorMessage(error, "Unable to load documents"));
     } finally {
       setIsPending(false);
     }
@@ -296,16 +297,16 @@ const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
     try {
       await axios.delete(`/api/Documents/${id}`);
       await load();
-      message.success("Document deleted");
+      appMessage.success("Document deleted");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to delete document"));
+      appMessage.error(getErrorMessage(error, "Unable to delete document"));
     }
   };
 
   const openRecommendation = (record: DocumentRow) => {
     const recommendation = recommendationByDocumentId[record.id];
     if (!recommendation) {
-      message.info("Analyze the document first.");
+      appMessage.info("Analyze the document first.");
       return;
     }
 
@@ -333,7 +334,7 @@ const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
       const text = await extractDocumentText(blob, fileName, contentType);
 
       if (!text) {
-        message.warning(
+        appMessage.warning(
           "Could not extract readable text from this file. Recommendation will use metadata only."
         );
       }
@@ -365,7 +366,7 @@ const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
         ...prev,
         [record.id]: recommendation,
       }));
-      message.success("AI recommendation ready");
+      appMessage.success("AI recommendation ready");
       setSelectedRecommendationDoc(record);
       setIsRecommendationOpen(true);
       executionForm.setFieldsValue({
@@ -384,7 +385,7 @@ const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
     } catch (error) {
       const explicitMessage =
         error instanceof Error && error.message ? error.message : undefined;
-      message.error(explicitMessage ?? getErrorMessage(error, "Unable to analyze document"));
+      appMessage.error(explicitMessage ?? getErrorMessage(error, "Unable to analyze document"));
     } finally {
       setAnalyzingDocumentId(null);
     }
@@ -501,17 +502,17 @@ const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
     const recommendation = recommendationByDocumentId[selectedRecommendationDoc.id];
 
     if (!recommendation) {
-      message.error("No recommendation loaded for this document.");
+      appMessage.error("No recommendation loaded for this document.");
       return;
     }
 
     if (recommendation.recommendedAction !== "create_lead_opportunity") {
-      message.info("This recommendation does not propose a lead creation action.");
+      appMessage.info("This recommendation does not propose a lead creation action.");
       return;
     }
 
     if (!canCreateOpportunity) {
-      message.error("You do not have permission to create opportunities.");
+      appMessage.error("You do not have permission to create opportunities.");
       return;
     }
 
@@ -534,10 +535,10 @@ const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
 
       setIsRecommendationOpen(false);
       await load();
-      message.success("Lead opportunity created from AI recommendation");
+      appMessage.success("Lead opportunity created from AI recommendation");
     } catch (error) {
       if ((error as { errorFields?: unknown })?.errorFields) return;
-      message.error(getErrorMessage(error, "Unable to apply AI recommendation"));
+      appMessage.error(getErrorMessage(error, "Unable to apply AI recommendation"));
     } finally {
       setApplyingDocumentId(null);
     }
@@ -602,9 +603,9 @@ const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
                 anchor.click();
                 anchor.remove();
                 window.URL.revokeObjectURL(url);
-                message.success("Download started");
+                appMessage.success("Download started");
               } catch (error) {
-                message.error(getErrorMessage(error, "Unable to download document"));
+                appMessage.error(getErrorMessage(error, "Unable to download document"));
               }
             }}
           >
@@ -627,11 +628,11 @@ const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
   const onUpload = async (values: UploadDocumentForm) => {
     try {
       if (!fileList[0]?.originFileObj) {
-        message.error("Select a file to upload.");
+        appMessage.error("Select a file to upload.");
         return;
       }
       if (values.relatedToType !== undefined && !values.relatedToId) {
-        message.error("Select a related record.");
+        appMessage.error("Select a related record.");
         return;
       }
       setUploading(true);
@@ -645,7 +646,7 @@ const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
       const effectiveRelatedToId = clientId ? clientId : values.relatedToId;
 
       if (effectiveRelatedToType !== undefined && !effectiveRelatedToId) {
-        message.error("Select a related record.");
+        appMessage.error("Select a related record.");
         return;
       }
 
@@ -663,12 +664,12 @@ const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
       await axios.post("/api/Documents/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      message.success("Document uploaded");
+      appMessage.success("Document uploaded");
       setFileList([]);
       form.resetFields();
       await load();
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to upload document"));
+      appMessage.error(getErrorMessage(error, "Unable to upload document"));
     } finally {
       setUploading(false);
     }
@@ -799,7 +800,7 @@ const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
                   : "info"
               }
               showIcon
-              message={`Recommended action: ${
+              title={`Recommended action: ${
                 recommendationByDocumentId[selectedRecommendationDoc.id]?.recommendedAction ===
                 "create_lead_opportunity"
                   ? "Create Lead Opportunity"
@@ -886,4 +887,5 @@ export default function DocumentsPage() {
   }, [router]);
   return null;
 }
+
 

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  App,
   Alert,
   Button,
   Card,
@@ -14,7 +15,6 @@ import {
   Space,
   Table,
   Typography,
-  message,
 } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
@@ -42,6 +42,7 @@ interface InviteFormValues {
 }
 
 const AdminUsersContent = () => {
+  const { message: appMessage } = App.useApp();
   const { tenantId, currentUser } = useAuthState();
   const axios = getAxiosInstance();
   const [form] = Form.useForm<CreateUserForm>();
@@ -64,7 +65,7 @@ const AdminUsersContent = () => {
 
   const handleCreateUser = async (values: CreateUserForm) => {
     if (!activeTenantId) {
-      message.error("Tenant ID missing in current session.");
+      appMessage.error("Tenant ID missing in current session.");
       return;
     }
 
@@ -78,26 +79,26 @@ const AdminUsersContent = () => {
         tenantId: activeTenantId,
         role: values.role,
       });
-      message.success("User created.");
+      appMessage.success("User created.");
       form.resetFields();
       await loadTenantUsers();
     } catch (error) {
       const status = (error as { response?: { status?: number } })?.response?.status;
       if (status === 400) {
-        message.error("Validation error or duplicate email.");
+        appMessage.error("Validation error or duplicate email.");
         return;
       }
       if (status === 403) {
-        message.error("Access denied.");
+        appMessage.error("Access denied.");
         return;
       }
-      message.error("Failed to create user.");
+      appMessage.error("Failed to create user.");
     }
   };
 
   const handleGenerateInviteLink = (values: InviteFormValues) => {
     if (!activeTenantId) {
-      message.error("Tenant ID missing in current session.");
+      appMessage.error("Tenant ID missing in current session.");
       return;
     }
 
@@ -111,20 +112,20 @@ const AdminUsersContent = () => {
       typeof window === "undefined" ? path : `${window.location.origin}${path}`;
 
     setInviteLink(generatedLink);
-    message.success("Invite link generated.");
+    appMessage.success("Invite link generated.");
   };
 
   const handleCopyInviteLink = async () => {
     if (!inviteLink) {
-      message.warning("Generate an invite link first.");
+      appMessage.warning("Generate an invite link first.");
       return;
     }
 
     try {
       await navigator.clipboard.writeText(inviteLink);
-      message.success("Invite link copied to clipboard.");
+      appMessage.success("Invite link copied to clipboard.");
     } catch {
-      message.error("Failed to copy invite link.");
+      appMessage.error("Failed to copy invite link.");
     }
   };
 
@@ -158,7 +159,7 @@ const AdminUsersContent = () => {
   ];
 
   return (
-    <Space direction="vertical" size={16} style={{ width: "100%" }}>
+    <Space orientation="vertical" size={16} style={{ width: "100%" }}>
       <Card>
         <Typography.Paragraph>
           Create and view users inside your organisation tenant.
@@ -181,7 +182,7 @@ const AdminUsersContent = () => {
           <Alert
             type="error"
             showIcon
-            message="Tenant ID missing in current session. Invite links cannot be generated."
+            title="Tenant ID missing in current session. Invite links cannot be generated."
           />
         ) : null}
         <Form<InviteFormValues>

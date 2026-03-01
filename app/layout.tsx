@@ -2,7 +2,7 @@
 
 import { AuthProvider } from "@/providers/authProvider";
 import "antd/dist/reset.css";
-import { ConfigProvider, theme as antdTheme } from "antd";
+import { App as AntdApp, ConfigProvider, theme as antdTheme } from "antd";
 import themeConfig from "@/config/theme.json";
 import { AppShell } from "@/components/layout/AppShell";
 
@@ -21,8 +21,11 @@ export default function RootLayout({
               algorithm: antdTheme.defaultAlgorithm, 
               // optionally: darkAlgorithm
             }}
+            warning={{ strict: false }}
           >
-            <AppShell>{children}</AppShell>
+            <AntdApp>
+              <AppShell>{children}</AppShell>
+            </AntdApp>
           </ConfigProvider>
         </AuthProvider>
       </body>

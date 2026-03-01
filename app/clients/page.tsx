@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Button,
+  App,
+  Button,
   Collapse,
   Form,
   Input,
@@ -11,7 +12,6 @@ import {
   Space,
   Table,
   Tag,
-  message,
 } from "antd";
 import type { TableProps } from "antd";
 import { useRouter } from "next/navigation";
@@ -29,6 +29,7 @@ import { capabilityStyles } from "../capability.styles";
 import { getErrorMessage } from "@/utils/requestError";
 
 const ClientsContent = () => {
+  const { message: appMessage } = App.useApp();
   const router = useRouter();
   const { clients, isPending } = useClientState();
   const { fetchClients, createClient, updateClient, deleteClient } = useClientActions();
@@ -56,9 +57,9 @@ const ClientsContent = () => {
     try {
       await deleteClient(id);
       await load();
-      message.success("Client deleted");
+      appMessage.success("Client deleted");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to delete client"));
+      appMessage.error(getErrorMessage(error, "Unable to delete client"));
     }
   };
 
@@ -79,9 +80,9 @@ const ClientsContent = () => {
         createForm.resetFields();
       }
       await load();
-      message.success("Client created");
+      appMessage.success("Client created");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to create client"));
+      appMessage.error(getErrorMessage(error, "Unable to create client"));
     }
   };
 
@@ -110,10 +111,10 @@ const ClientsContent = () => {
       setIsEditOpen(false);
       setEditingClientId(null);
       await load();
-      message.success("Client updated");
+      appMessage.success("Client updated");
     } catch (error) {
       if ((error as { errorFields?: unknown })?.errorFields) return;
-      message.error(getErrorMessage(error, "Unable to update client"));
+      appMessage.error(getErrorMessage(error, "Unable to update client"));
     }
   };
 

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  App,
   Button,
   Collapse,
   DatePicker,
@@ -15,7 +16,6 @@ import {
   Switch,
   Table,
   Tag,
-  message,
 } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
@@ -47,6 +47,7 @@ interface ContractsModuleProps {
 }
 
 const ContractsContent = ({ clientId }: ContractsModuleProps) => {
+  const { message: appMessage } = App.useApp();
   const { contracts, isPending } = useContractState();
   const { clients } = useClientState();
   const { users: tenantUsers } = useUsersState();
@@ -89,9 +90,9 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
     try {
       await fn();
       await load();
-      message.success(text);
+      appMessage.success(text);
     } catch (error) {
-      message.error(getErrorMessage(error, "Action failed"));
+      appMessage.error(getErrorMessage(error, "Action failed"));
     }
   };
 
@@ -137,9 +138,9 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
         renewalForm.resetFields(["renewalCompleteId"]);
       }
       await load();
-      message.success("Contract action completed");
+      appMessage.success("Contract action completed");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to process contract action"));
+      appMessage.error(getErrorMessage(error, "Unable to process contract action"));
     }
   };
 
@@ -166,10 +167,10 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
       setIsEditOpen(false);
       setEditingContractId(null);
       await load();
-      message.success("Contract updated");
+      appMessage.success("Contract updated");
     } catch (error) {
       if ((error as { errorFields?: unknown })?.errorFields) return;
-      message.error(getErrorMessage(error, "Unable to update contract"));
+      appMessage.error(getErrorMessage(error, "Unable to update contract"));
     }
   };
 
@@ -180,9 +181,9 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
     setExportingContractId(contractId);
     try {
       await pdfService.generateContractPdf(contractId);
-      message.success("Download started");
+      appMessage.success("Download started");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to generate contract PDF"));
+      appMessage.error(getErrorMessage(error, "Unable to generate contract PDF"));
     } finally {
       setExportingContractId(null);
     }
@@ -429,4 +430,5 @@ export default function ContractsPage() {
   }, [router]);
   return null;
 }
+
 

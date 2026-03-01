@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
-import { Button, Card, Col, Row, Space, Statistic, message } from "antd";
+import { App, Button, Card, Col, Row, Space, Statistic } from "antd";
 import { capabilityStyles } from "@/app/capability.styles";
 import { useClientActions, useClientState } from "@/providers/clientProvider";
 import { pdfService } from "@/services/pdfService";
@@ -10,6 +10,7 @@ import { getErrorMessage } from "@/utils/requestError";
 import { useState } from "react";
 
 export default function ClientOverviewPage() {
+  const { message: appMessage } = App.useApp();
   const params = useParams<{ clientId: string }>();
   const clientId = params.clientId;
   const { stats } = useClientState();
@@ -31,9 +32,9 @@ export default function ClientOverviewPage() {
     setIsExporting(true);
     try {
       await pdfService.generateClientSummaryPdf(clientId);
-      message.success("Download started");
+      appMessage.success("Download started");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to generate client summary PDF"));
+      appMessage.error(getErrorMessage(error, "Unable to generate client summary PDF"));
     } finally {
       setIsExporting(false);
     }

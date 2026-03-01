@@ -10,7 +10,7 @@ import {
   LogoutOutlined,
   RiseOutlined,
 } from "@ant-design/icons";
-import { Avatar, Button, Card, Col, Row, Space, Typography, message } from "antd";
+import { App, Avatar, Button, Card, Col, Row, Space, Typography } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
 import { useAuthActions, useAuthState } from "@/providers/authProvider";
 import { resolveUserRole, Roles } from "@/constants/roles";
@@ -87,7 +87,7 @@ const BarChartCard = ({
       {data.length === 0 ? (
         <Typography.Text type="secondary">No data available.</Typography.Text>
       ) : (
-        <Space direction="vertical" style={{ width: "100%" }} size={10}>
+        <Space orientation="vertical" style={{ width: "100%" }} size={10}>
           {data.slice(0, 8).map((item) => (
             <div key={item.label}>
               <div
@@ -178,6 +178,7 @@ const LineChartCard = ({
 };
 
 const DashboardContent = () => {
+  const { message: appMessage } = App.useApp();
   const { role, user } = useAuthState();
   const { logout } = useAuthActions();
   const {
@@ -223,7 +224,7 @@ const DashboardContent = () => {
       setExpiringContractsForRenewal(expiringContracts);
     } catch (workflowError) {
       console.error("Contract expiring workflow load failed", workflowError);
-      message.warning("Primary action succeeded. Follow-up automation failed.");
+      appMessage.warning("Primary action succeeded. Follow-up automation failed.");
     }
   }, [
     activeRole,
@@ -284,14 +285,14 @@ const DashboardContent = () => {
     setRenewingContractIds((previous) => [...previous, contractId]);
     try {
       await workflowService.createRenewalOpportunity(contractId);
-      message.success("Renewal opportunity created.");
+      appMessage.success("Renewal opportunity created.");
       const refreshed = await workflowService.handleContractExpiring({
         daysUntilExpiry: 90,
       });
       setExpiringContractsForRenewal(refreshed);
     } catch (error) {
       console.error("Renewal workflow failed", error);
-      message.warning("Primary action succeeded. Follow-up automation failed.");
+      appMessage.warning("Primary action succeeded. Follow-up automation failed.");
     } finally {
       setRenewingContractIds((previous) =>
         previous.filter((id) => id !== contractId)
@@ -497,7 +498,7 @@ const DashboardContent = () => {
             No contracts currently require renewal workflow.
           </Typography.Text>
         ) : (
-          <Space direction="vertical" style={{ width: "100%" }} size={10}>
+          <Space orientation="vertical" style={{ width: "100%" }} size={10}>
             {expiringContractsForRenewal.map((contract) => (
               <div
                 key={contract.id}

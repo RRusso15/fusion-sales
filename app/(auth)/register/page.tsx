@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { Form, Input, Button, Typography, message, Checkbox, Select, Alert } from "antd";
+import { App, Form, Input, Button, Typography, Checkbox, Select, Alert } from "antd";
 import { useAuthActions, useAuthState } from "@/providers/authProvider";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authStyles } from "../auth.styles";
@@ -39,6 +39,7 @@ const isJoinRole = (value?: string): value is JoinRole =>
 const isGuid = (value?: string) => !!value && GUID_REGEX.test(value);
 
 export default function RegisterPage() {
+  const { message: appMessage } = App.useApp();
   const { register } = useAuthActions();
   const { isPending } = useAuthState();
   const router = useRouter();
@@ -158,15 +159,15 @@ export default function RegisterPage() {
   const onFinish = async (values: RegisterFormValues) => {
     try {
       if (inviteConfig.isInviteMode && inviteConfig.error) {
-        message.error(inviteConfig.error);
+        appMessage.error(inviteConfig.error);
         return;
       }
 
       await register(buildRegisterPayload(values));
-      message.success("Registration successful");
+      appMessage.success("Registration successful");
       router.push("/");
     } catch {
-      message.error("Registration failed");
+      appMessage.error("Registration failed");
     }
   };
 
@@ -198,7 +199,7 @@ export default function RegisterPage() {
               type="info"
               showIcon
               style={{ marginBottom: 16 }}
-              message={`You are joining an existing organisation as ${inviteConfig.role}`}
+              title={`You are joining an existing organisation as ${inviteConfig.role}`}
             />
           ) : null}
 
@@ -207,7 +208,7 @@ export default function RegisterPage() {
               type="error"
               showIcon
               style={{ marginBottom: 16 }}
-              message={inviteConfig.error}
+              title={inviteConfig.error}
             />
           ) : null}
 
@@ -368,3 +369,10 @@ export default function RegisterPage() {
     </>
   );
 }
+
+
+
+
+
+
+

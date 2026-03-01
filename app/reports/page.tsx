@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, Card, Space, Table, message } from "antd";
+import { App, Button, Card, Space, Table } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
 import { Roles } from "@/constants/roles";
@@ -24,6 +24,7 @@ interface SalesByPeriod {
 }
 
 const ReportsContent = () => {
+  const { message: appMessage } = App.useApp();
   const axios = getAxiosInstance();
   const [opportunities, setOpportunities] = useState<ReportOpportunity[]>([]);
   const [salesByPeriod, setSalesByPeriod] = useState<SalesByPeriod[]>([]);
@@ -43,7 +44,7 @@ const ReportsContent = () => {
       setOpportunities(oppResponse.data.items ?? oppResponse.data);
       setSalesByPeriod(salesResponse.data.items ?? salesResponse.data);
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to load reports"));
+      appMessage.error(getErrorMessage(error, "Unable to load reports"));
     } finally {
       setIsPending(false);
     }
@@ -71,9 +72,9 @@ const ReportsContent = () => {
     setIsExportingPdf(true);
     try {
       await pdfService.generateReportPdf({ groupBy: "month" });
-      message.success("Download started");
+      appMessage.success("Download started");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to generate reports PDF"));
+      appMessage.error(getErrorMessage(error, "Unable to generate reports PDF"));
     } finally {
       setIsExportingPdf(false);
     }

@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import {
-  Button,
+  App,
+  Button,
   Collapse,
   Form,
   Input,
@@ -13,7 +14,6 @@ import {
   Space,
   Table,
   Tag,
-  message,
 } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
@@ -52,6 +52,7 @@ import {
 } from "@/providers/usersProvider";
 
 const OpportunitiesContent = () => {
+  const { message: appMessage } = App.useApp();
   const params = useParams<{ clientId?: string }>();
   const clientId = typeof params?.clientId === "string" ? params.clientId : undefined;
   const { opportunities, isPending } = useOpportunityState();
@@ -113,7 +114,7 @@ const OpportunitiesContent = () => {
       const record = opportunities.find((item) => item.id === id);
       const currentStage = record?.stage ?? OpportunityStage.Lead;
       if (currentStage >= OpportunityStage.Negotiation) {
-        message.info("Use Close Won or Close Lost to complete this opportunity.");
+        appMessage.info("Use Close Won or Close Lost to complete this opportunity.");
         return;
       }
       const nextStage = (currentStage + 1) as OpportunityStageValue;
@@ -125,12 +126,12 @@ const OpportunitiesContent = () => {
         });
       } catch (workflowError) {
         console.error("Opportunity stage workflow failed", workflowError);
-        message.warning("Primary action succeeded. Follow-up automation failed.");
+        appMessage.warning("Primary action succeeded. Follow-up automation failed.");
       }
       await load();
-      message.success("Stage advanced");
+      appMessage.success("Stage advanced");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to advance stage"));
+      appMessage.error(getErrorMessage(error, "Unable to advance stage"));
     }
   };
 
@@ -144,16 +145,16 @@ const OpportunitiesContent = () => {
         });
       } catch (workflowError) {
         console.error("Opportunity close workflow failed", workflowError);
-        message.warning("Primary action succeeded. Follow-up automation failed.");
+        appMessage.warning("Primary action succeeded. Follow-up automation failed.");
       }
       await load();
-      message.success(
+      appMessage.success(
         stage === OpportunityStage.ClosedWon
           ? "Moved to Closed Won"
           : "Moved to Closed Lost"
       );
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to update opportunity stage"));
+      appMessage.error(getErrorMessage(error, "Unable to update opportunity stage"));
     }
   };
 
@@ -183,9 +184,9 @@ const OpportunitiesContent = () => {
         await assignOpportunity(values.assignId, values.assignUserId);
       }
       await load();
-      message.success("Opportunity action completed");
+      appMessage.success("Opportunity action completed");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to process opportunity action"));
+      appMessage.error(getErrorMessage(error, "Unable to process opportunity action"));
     }
   };
 
@@ -212,10 +213,10 @@ const OpportunitiesContent = () => {
       setIsEditOpen(false);
       setEditingOpportunityId(null);
       await load();
-      message.success("Opportunity updated");
+      appMessage.success("Opportunity updated");
     } catch (error) {
       if ((error as { errorFields?: unknown })?.errorFields) return;
-      message.error(getErrorMessage(error, "Unable to update opportunity"));
+      appMessage.error(getErrorMessage(error, "Unable to update opportunity"));
     }
   };
 
@@ -223,9 +224,9 @@ const OpportunitiesContent = () => {
     setExportingOpportunityId(opportunityId);
     try {
       await pdfService.generateOpportunitySummaryPdf(opportunityId);
-      message.success("Download started");
+      appMessage.success("Download started");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to generate opportunity summary PDF"));
+      appMessage.error(getErrorMessage(error, "Unable to generate opportunity summary PDF"));
     } finally {
       setExportingOpportunityId(null);
     }
@@ -481,4 +482,5 @@ export function OpportunitiesModule() {
 export default function OpportunitiesPage() {
   return <OpportunitiesModule />;
 }
+
 

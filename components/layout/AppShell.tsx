@@ -161,12 +161,16 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
         <nav style={appShellStyles.nav}>
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const isClientScopedItem =
+              isClientWorkspace &&
+              item.href.startsWith(`/clients/${activeClientId}/`);
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 style={{
                   ...appShellStyles.navItem,
+                  ...(isClientScopedItem ? { paddingLeft: 28 } : {}),
                   ...(isActive ? appShellStyles.navItemActive : {}),
                 }}
               >
