@@ -1,7 +1,6 @@
 "use client";
 
-import {
-  App, Form, Input, Button, Typography} from "antd";
+import { App, Form, Input, Button, Typography } from "antd";
 import { useAuthActions, useAuthState } from "@/providers/authProvider";
 import { useRouter } from "next/navigation";
 import { authStyles } from "../auth.styles";

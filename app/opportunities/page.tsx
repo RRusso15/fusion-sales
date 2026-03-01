@@ -50,6 +50,8 @@ import {
   useUsersActions,
   useUsersState,
 } from "@/providers/usersProvider";
+import { PageTransition } from "@/components/ui/PageTransition";
+import { ContentSkeleton } from "@/components/ui/ContentSkeleton";
 
 const OpportunitiesContent = () => {
   const { message: appMessage } = App.useApp();
@@ -68,6 +70,7 @@ const OpportunitiesContent = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingOpportunityId, setEditingOpportunityId] = useState<string | null>(null);
   const [exportingOpportunityId, setExportingOpportunityId] = useState<string | null>(null);
+  const [flashedOpportunityId, setFlashedOpportunityId] = useState<string | null>(null);
   const [editForm] = Form.useForm();
   const [createForm] = Form.useForm();
   const createClientId = Form.useWatch("createClientId", createForm);
@@ -129,6 +132,8 @@ const OpportunitiesContent = () => {
         appMessage.warning("Primary action succeeded. Follow-up automation failed.");
       }
       await load();
+      setFlashedOpportunityId(id);
+      setTimeout(() => setFlashedOpportunityId((current) => (current === id ? null : current)), 280);
       appMessage.success("Stage advanced");
     } catch (error) {
       appMessage.error(getErrorMessage(error, "Unable to advance stage"));
@@ -148,6 +153,8 @@ const OpportunitiesContent = () => {
         appMessage.warning("Primary action succeeded. Follow-up automation failed.");
       }
       await load();
+      setFlashedOpportunityId(id);
+      setTimeout(() => setFlashedOpportunityId((current) => (current === id ? null : current)), 280);
       appMessage.success(
         stage === OpportunityStage.ClosedWon
           ? "Moved to Closed Won"
@@ -238,7 +245,7 @@ const OpportunitiesContent = () => {
       title: "Stage",
       dataIndex: "stage",
       key: "stage",
-      render: (value?: number) => {
+      render: (value?: number, record?: IOpportunity) => {
         const stage = value ?? 0;
         const colorByStage: Record<number, string> = {
           [OpportunityStage.Lead]: "default",
@@ -249,7 +256,10 @@ const OpportunitiesContent = () => {
           [OpportunityStage.ClosedLost]: "red",
         };
         return (
-          <Tag color={colorByStage[stage] ?? "default"}>
+          <Tag
+            color={colorByStage[stage] ?? "default"}
+            className={record?.id === flashedOpportunityId ? "status-flash" : ""}
+          >
             {(OpportunityStageLabels as Record<number, string>)[stage] ?? "-"}
           </Tag>
         );
@@ -329,7 +339,11 @@ const OpportunitiesContent = () => {
     : contacts;
 
   return (
-    <div style={capabilityStyles.container}>
+    <PageTransition>
+      {isPending && opportunities.length === 0 ? (
+        <ContentSkeleton variant="table" />
+      ) : (
+    <div style={capabilityStyles.container} className="fade-in">
       <Collapse
         items={[
           {
@@ -431,6 +445,7 @@ const OpportunitiesContent = () => {
         ]}
       />
       <Table<IOpportunity>
+        className={`table-fade table-row-hover ${isPending ? "loading" : ""}`}
         rowKey="id"
         loading={isPending}
         dataSource={opportunities}
@@ -460,6 +475,8 @@ const OpportunitiesContent = () => {
         </Form>
       </Modal>
     </div>
+      )}
+    </PageTransition>
   );
 };
 

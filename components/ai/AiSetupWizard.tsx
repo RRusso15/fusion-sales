@@ -37,6 +37,7 @@ import {
 import { useAuthState } from "@/providers/authProvider";
 import { getErrorMessage } from "@/utils/requestError";
 import { capabilityStyles } from "@/app/capability.styles";
+import { PageTransition } from "@/components/ui/PageTransition";
 
 interface AiSetupWizardProps {
   existingClientId?: string;
@@ -175,15 +176,16 @@ export const AiSetupWizard = ({ existingClientId }: AiSetupWizardProps) => {
   };
 
   return (
-    <div style={capabilityStyles.container}>
-      <Card title="AI Setup Wizard">
+    <PageTransition>
+    <div style={capabilityStyles.container} className="fade-in">
+      <Card title="AI Setup Wizard" className="hover-lift">
         <Steps current={currentStep} items={steps} />
       </Card>
 
       {warning ? <Alert type="warning" showIcon title={warning} /> : null}
 
-      <Card title="1. Input (Upload or Paste)">
-        <Space orientation="vertical" style={{ width: "100%" }}>
+      <Card title="1. Input (Upload or Paste)" className="step-enter">
+        <Space orientation="vertical" style={{ width: "100%" }} className="stagger-list">
           <Upload
             beforeUpload={() => false}
             maxCount={1}
@@ -199,17 +201,17 @@ export const AiSetupWizard = ({ existingClientId }: AiSetupWizardProps) => {
             placeholder="Paste document text here..."
           />
           <Space>
-            <Button type="primary" onClick={runExtract} loading={isExtracting}>
+            <Button type="primary" onClick={runExtract} loading={isExtracting} className="press">
               Extract (Free)
             </Button>
-            <Button onClick={runEnhance} loading={isEnhancing} disabled={!draftPlan}>
+            <Button onClick={runEnhance} loading={isEnhancing} disabled={!draftPlan} className="press">
               Enhance with AI
             </Button>
           </Space>
         </Space>
       </Card>
 
-      <Card title="2-4. Review + Execute">
+      <Card title="2-4. Review + Execute" className="step-enter">
         {isExecuting ? <Spin /> : null}
         <Space orientation="vertical" style={{ width: "100%" }} size={16}>
           <Divider>Client</Divider>
@@ -655,7 +657,7 @@ export const AiSetupWizard = ({ existingClientId }: AiSetupWizardProps) => {
           <Space>
             <Button onClick={() => setCurrentStep((step) => Math.max(0, step - 1))}>Back</Button>
             <Button onClick={() => setCurrentStep((step) => Math.min(3, step + 1))}>Next</Button>
-            <Button type="primary" onClick={runExecute} loading={isExecuting}>
+            <Button type="primary" onClick={runExecute} loading={isExecuting} className="press">
               Execute Setup
             </Button>
           </Space>
@@ -663,14 +665,15 @@ export const AiSetupWizard = ({ existingClientId }: AiSetupWizardProps) => {
       </Card>
 
       {executionResult ? (
-        <Card title="Execution Summary">
-          <Space orientation="vertical" style={{ width: "100%" }}>
+        <Card title="Execution Summary" className="step-enter">
+          <Space orientation="vertical" style={{ width: "100%" }} className="stagger-list">
             <Tag color={executionResult.success ? "green" : "orange"}>
               {executionResult.success ? "Completed" : "Completed with issues"}
             </Tag>
             {executionResult.steps.map((step) => (
               <Alert
                 key={step.key}
+                className={step.status === "success" ? "step-check" : ""}
                 type={
                   step.status === "success"
                     ? "success"
@@ -705,6 +708,7 @@ export const AiSetupWizard = ({ existingClientId }: AiSetupWizardProps) => {
         </Card>
       ) : null}
     </div>
+    </PageTransition>
   );
 };
 

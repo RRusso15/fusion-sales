@@ -65,6 +65,8 @@ import {
 } from "@/providers/usersProvider";
 import dayjs, { Dayjs } from "dayjs";
 import { workflowService } from "@/utils/workflowService";
+import { PageTransition } from "@/components/ui/PageTransition";
+import { ContentSkeleton } from "@/components/ui/ContentSkeleton";
 
 const ActivitiesContent = () => {
   const { message: appMessage } = App.useApp();
@@ -333,7 +335,11 @@ const ActivitiesContent = () => {
   })();
 
   return (
-    <div style={capabilityStyles.container}>
+    <PageTransition>
+      {isPending && activities.length === 0 ? (
+        <ContentSkeleton variant="table" />
+      ) : (
+    <div style={capabilityStyles.container} className="fade-in">
       <Collapse
         items={[
           {
@@ -416,7 +422,7 @@ const ActivitiesContent = () => {
                   </>
                 ) : null}
                 {canCreate ? (
-                  <Button type="primary" htmlType="submit" loading={isPending}>
+                  <Button type="primary" htmlType="submit" loading={isPending} className="press">
                     Create Activity
                   </Button>
                 ) : null}
@@ -440,7 +446,7 @@ const ActivitiesContent = () => {
                   />
                 </Form.Item>
                 {canCreate ? (
-                  <Button type="primary" htmlType="submit" loading={isPending}>
+                  <Button type="primary" htmlType="submit" loading={isPending} className="press">
                     Cancel Activity
                   </Button>
                 ) : null}
@@ -450,6 +456,7 @@ const ActivitiesContent = () => {
         ]}
       />
       <Table<IActivity>
+        className={`table-fade table-row-hover ${isPending ? "loading" : ""}`}
         rowKey="id"
         loading={isPending}
         dataSource={activities}
@@ -479,6 +486,8 @@ const ActivitiesContent = () => {
         </Form>
       </Modal>
     </div>
+      )}
+    </PageTransition>
   );
 };
 

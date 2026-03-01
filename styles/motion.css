@@ -1,0 +1,207 @@
+:root {
+  --t-fast: 120ms;
+  --t-med: 180ms;
+  --t-slow: 240ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.fade-in {
+  animation: fadeIn var(--t-med) var(--ease-standard) both;
+}
+
+.slide-in-up {
+  animation: slideInUp var(--t-med) var(--ease-standard) both;
+}
+
+.scale-in {
+  animation: scaleIn var(--t-med) var(--ease-standard) both;
+}
+
+.hover-lift {
+  transition:
+    transform var(--t-fast) var(--ease-standard),
+    box-shadow var(--t-fast) var(--ease-standard),
+    background-color var(--t-fast) var(--ease-standard);
+}
+
+.hover-lift:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(15, 35, 45, 0.08);
+}
+
+.press {
+  transition: transform var(--t-fast) var(--ease-standard);
+}
+
+.press:active {
+  transform: scale(0.985);
+}
+
+.page-transition {
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity var(--t-med) var(--ease-standard),
+    transform var(--t-med) var(--ease-standard);
+}
+
+.page-transition-entered {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.app-nav-item {
+  transition:
+    background-color var(--t-fast) var(--ease-standard),
+    color var(--t-fast) var(--ease-standard),
+    transform var(--t-fast) var(--ease-standard);
+}
+
+.app-nav-item .app-nav-icon {
+  transition:
+    transform var(--t-fast) var(--ease-standard),
+    opacity var(--t-fast) var(--ease-standard);
+}
+
+.app-nav-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.app-nav-item:hover .app-nav-icon {
+  opacity: 0.95;
+  transform: translateX(1px);
+}
+
+.table-fade {
+  transition: opacity var(--t-fast) var(--ease-standard);
+  opacity: 1;
+  min-height: 280px;
+}
+
+.table-fade.loading {
+  opacity: 0.72;
+}
+
+.table-row-hover .ant-table-tbody > tr > td {
+  transition: background-color var(--t-fast) var(--ease-standard);
+}
+
+.table-row-hover .ant-table-tbody > tr:hover > td {
+  background-color: #f7fafc !important;
+  cursor: pointer;
+}
+
+.status-flash {
+  animation: statusFlash var(--t-slow) var(--ease-standard);
+}
+
+.expiring-pulse {
+  animation: subtlePulse 1.8s ease-in-out infinite;
+}
+
+.form-shake {
+  animation: formShake 200ms ease-in-out 1;
+}
+
+.step-enter {
+  animation: slideInUp var(--t-med) var(--ease-standard) both;
+}
+
+.step-check {
+  animation: scaleIn var(--t-fast) var(--ease-standard) both;
+}
+
+.stagger-list > * {
+  opacity: 0;
+  animation: fadeIn var(--t-med) var(--ease-standard) both;
+}
+
+.stagger-list > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-list > *:nth-child(2) { animation-delay: 24ms; }
+.stagger-list > *:nth-child(3) { animation-delay: 48ms; }
+.stagger-list > *:nth-child(4) { animation-delay: 72ms; }
+.stagger-list > *:nth-child(5) { animation-delay: 96ms; }
+.stagger-list > *:nth-child(6) { animation-delay: 120ms; }
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes subtlePulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 77, 79, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(255, 77, 79, 0.12);
+  }
+}
+
+@keyframes statusFlash {
+  from {
+    filter: brightness(1.09);
+  }
+  to {
+    filter: brightness(1);
+  }
+}
+
+@keyframes formShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-fast: 1ms;
+    --t-med: 1ms;
+    --t-slow: 1ms;
+  }
+
+  .fade-in,
+  .slide-in-up,
+  .scale-in,
+  .status-flash,
+  .expiring-pulse,
+  .form-shake,
+  .step-enter,
+  .step-check,
+  .stagger-list > * {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .hover-lift:hover,
+  .press:active,
+  .app-nav-item:hover .app-nav-icon {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}
+

@@ -238,13 +238,14 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
               <Link
                 key={item.href}
                 href={item.href}
+                className={`app-nav-item${isActive ? " app-nav-item-active" : ""}`}
                 style={{
                   ...appShellStyles.navItem,
                   ...(isClientScopedItem ? { paddingLeft: 28 } : {}),
                   ...(isActive ? appShellStyles.navItemActive : {}),
                 }}
               >
-                {item.icon}
+                <span className="app-nav-icon">{item.icon}</span>
                 <span>{item.label}</span>
               </Link>
             );

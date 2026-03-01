@@ -8,6 +8,8 @@ import { useClientActions, useClientState } from "@/providers/clientProvider";
 import { pdfService } from "@/services/pdfService";
 import { getErrorMessage } from "@/utils/requestError";
 import { useState } from "react";
+import { PageTransition } from "@/components/ui/PageTransition";
+import { ContentSkeleton } from "@/components/ui/ContentSkeleton";
 
 export default function ClientOverviewPage() {
   const { message: appMessage } = App.useApp();
@@ -41,14 +43,16 @@ export default function ClientOverviewPage() {
   };
 
   return (
-    <div style={capabilityStyles.container}>
+    <PageTransition>
+    <div style={capabilityStyles.container} className="fade-in">
       <Card>
         <Space>
-          <Button type="primary" onClick={handleDownloadSummary} loading={isExporting}>
+          <Button type="primary" onClick={handleDownloadSummary} loading={isExporting} className="press">
             Download Summary
           </Button>
         </Space>
       </Card>
+      {!stats ? <ContentSkeleton variant="cards" /> : null}
       <Row gutter={[16, 16]}>
         <Col xs={24} md={8}>
           <Card>
@@ -71,5 +75,6 @@ export default function ClientOverviewPage() {
         </Col>
       </Row>
     </div>
+    </PageTransition>
   );
 }

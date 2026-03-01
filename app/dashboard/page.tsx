@@ -23,6 +23,8 @@ import { OpportunityStageLabels } from "@/constants/enums";
 import { capabilityStyles } from "../capability.styles";
 import { workflowService } from "@/utils/workflowService";
 import type { IContract } from "@/providers/contractProvider/context";
+import { PageTransition } from "@/components/ui/PageTransition";
+import { ContentSkeleton } from "@/components/ui/ContentSkeleton";
 
 type ChartDatum = {
   label: string;
@@ -182,6 +184,7 @@ const DashboardContent = () => {
   const { role, user } = useAuthState();
   const { logout } = useAuthActions();
   const {
+    isPending,
     overview,
     salesPerformance,
     pipelineMetrics,
@@ -301,10 +304,14 @@ const DashboardContent = () => {
   };
 
   return (
-    <div style={capabilityStyles.container}>
+    <PageTransition>
+      {isPending ? (
+        <ContentSkeleton variant="cards" />
+      ) : (
+    <div style={capabilityStyles.container} className="fade-in">
       <Card style={capabilityStyles.header}>
         <div style={capabilityStyles.actions}>
-          <Button danger icon={<LogoutOutlined />} onClick={logout}>
+          <Button danger icon={<LogoutOutlined />} onClick={logout} className="press">
             Logout
           </Button>
         </div>
@@ -312,7 +319,7 @@ const DashboardContent = () => {
 
       <Row gutter={[16, 16]} style={capabilityStyles.cardsRow}>
         <Col xs={24} md={6}>
-          <Card>
+          <Card className="hover-lift scale-in">
             <Space align="start">
               <Avatar
                 icon={<FundOutlined />}
@@ -328,7 +335,7 @@ const DashboardContent = () => {
           </Card>
         </Col>
         <Col xs={24} md={6}>
-          <Card>
+          <Card className="hover-lift scale-in">
             <Space align="start">
               <Avatar
                 icon={<RiseOutlined />}
@@ -344,7 +351,7 @@ const DashboardContent = () => {
           </Card>
         </Col>
         <Col xs={24} md={6}>
-          <Card>
+          <Card className="hover-lift scale-in">
             <Space align="start">
               <Avatar
                 icon={<CalendarOutlined />}
@@ -360,7 +367,7 @@ const DashboardContent = () => {
           </Card>
         </Col>
         <Col xs={24} md={6}>
-          <Card>
+          <Card className="hover-lift scale-in">
             <Space align="start">
               <Avatar
                 icon={<FileProtectOutlined />}
@@ -379,7 +386,7 @@ const DashboardContent = () => {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} md={8}>
-          <Card>
+          <Card className="hover-lift scale-in">
             <Space align="start">
               <Avatar
                 icon={<CheckCircleOutlined />}
@@ -395,7 +402,7 @@ const DashboardContent = () => {
           </Card>
         </Col>
         <Col xs={24} md={8}>
-          <Card>
+          <Card className="hover-lift scale-in">
             <Space align="start">
               <Avatar
                 icon={<DollarCircleOutlined />}
@@ -411,7 +418,7 @@ const DashboardContent = () => {
           </Card>
         </Col>
         <Col xs={24} md={8}>
-          <Card>
+          <Card className="hover-lift scale-in">
             <Space align="start">
               <Avatar
                 icon={<CalendarOutlined />}
@@ -510,9 +517,13 @@ const DashboardContent = () => {
                 }}
               >
                 <Typography.Text>
-                  {contract.title ?? contract.id} ({contract.daysUntilExpiry ?? "-"} days left)
+                  {contract.title ?? contract.id}{" "}
+                  <span className={contract.daysUntilExpiry && contract.daysUntilExpiry <= 30 ? "expiring-pulse" : ""}>
+                    ({contract.daysUntilExpiry ?? "-"} days left)
+                  </span>
                 </Typography.Text>
                 <Button
+                  className="press"
                   onClick={() => handleCreateRenewalOpportunity(contract.id)}
                   loading={renewingContractIds.includes(contract.id)}
                 >
@@ -524,6 +535,8 @@ const DashboardContent = () => {
         )}
       </Card>
     </div>
+      )}
+    </PageTransition>
   );
 };
 

@@ -27,6 +27,8 @@ import type { ClientTypeValue } from "@/constants/enums";
 import type { IClient } from "@/providers/clientProvider/context";
 import { capabilityStyles } from "../capability.styles";
 import { getErrorMessage } from "@/utils/requestError";
+import { PageTransition } from "@/components/ui/PageTransition";
+import { ContentSkeleton } from "@/components/ui/ContentSkeleton";
 
 const ClientsContent = () => {
   const { message: appMessage } = App.useApp();
@@ -165,7 +167,11 @@ const ClientsContent = () => {
   ];
 
   return (
-    <div style={capabilityStyles.container}>
+    <PageTransition>
+      {isPending && clients.length === 0 ? (
+        <ContentSkeleton variant="table" />
+      ) : (
+    <div style={capabilityStyles.container} className="fade-in">
       <Collapse
         items={[
           ...(canCreate
@@ -192,7 +198,7 @@ const ClientsContent = () => {
                 <Form.Item name="createWebsite" label="Website">
                   <Input />
                 </Form.Item>
-                <Button type="primary" htmlType="submit" loading={isPending}>
+                <Button type="primary" htmlType="submit" loading={isPending} className="press">
                   Create Client
                 </Button>
               </Form>
@@ -202,6 +208,7 @@ const ClientsContent = () => {
         ]}
       />
       <Table<IClient>
+        className={`table-fade table-row-hover ${isPending ? "loading" : ""}`}
         rowKey="id"
         loading={isPending}
         dataSource={clients}
@@ -240,6 +247,8 @@ const ClientsContent = () => {
         </Form>
       </Modal>
     </div>
+      )}
+    </PageTransition>
   );
 };
 

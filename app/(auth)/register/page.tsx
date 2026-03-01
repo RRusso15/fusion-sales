@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { App, Form, Input, Button, Typography, Checkbox, Select, Alert } from "antd";
+import { App, Form, Input, Button, Typography, Checkbox, Alert, Row, Col } from "antd";
 import { useAuthActions, useAuthState } from "@/providers/authProvider";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authStyles } from "../auth.styles";
@@ -18,8 +18,6 @@ interface RegisterFormValues {
   phoneNumber?: string;
   isAdminTenant?: boolean;
   tenantName?: string;
-  tenantId?: string;
-  role?: Exclude<UserRole, "Admin">;
 }
 
 type JoinRole = Exclude<UserRole, "Admin">;
@@ -106,8 +104,6 @@ export default function RegisterPage() {
   useEffect(() => {
     if (!inviteConfig.isInviteMode) return;
     form.setFieldsValue({
-      tenantId: inviteConfig.tenantId,
-      role: inviteConfig.role,
       isAdminTenant: false,
       email: inviteConfig.email,
     });
@@ -141,18 +137,9 @@ export default function RegisterPage() {
       };
     }
 
-    const tenantIdValue = values.tenantId?.trim();
-    if (tenantIdValue) {
-      return {
-        ...basePayload,
-        tenantId: tenantIdValue,
-        role: values.role ?? Roles.SalesRep,
-      };
-    }
-
     return {
       ...basePayload,
-      role: values.role ?? Roles.SalesRep,
+      role: Roles.SalesRep,
     };
   };
 
@@ -212,75 +199,83 @@ export default function RegisterPage() {
             />
           ) : null}
 
-          <Form.Item
-            style={authStyles.formItem}
-            label="First Name"
-            name="firstName"
-            rules={[{ required: true, message: "Please enter first name" }]}
-          >
-            <Input size="large" />
-          </Form.Item>
-
-          <Form.Item
-            style={authStyles.formItem}
-            label="Last Name"
-            name="lastName"
-            rules={[{ required: true, message: "Please enter last name" }]}
-          >
-            <Input size="large" />
-          </Form.Item>
-
-          <Form.Item
-            style={authStyles.formItem}
-            label="Email"
-            name="email"
-            rules={[
-              { required: true, message: "Please enter email" },
-              { type: "email", message: "Please enter a valid email" },
-              ...(inviteConfig.isInviteMode && inviteConfig.email
-                ? [
-                    {
-                      validator: async (_: unknown, value: string) => {
-                        if (!value) return Promise.resolve();
-                        if (value.trim().toLowerCase() === inviteConfig.email?.toLowerCase()) {
-                          return Promise.resolve();
-                        }
-                        return Promise.reject(
-                          new Error("Email must match the invited email address.")
-                        );
-                      },
-                    },
-                  ]
-                : []),
-            ]}
-          >
-            <Input size="large" />
-          </Form.Item>
-
-          <Form.Item
-            style={authStyles.formItem}
-            label="Password"
-            name="password"
-            rules={[
-              { required: true, message: "Please enter password" },
-              { min: 6, message: "Password must be at least 6 characters" },
-            ]}
-          >
-            <Input.Password size="large" />
-          </Form.Item>
-
-          <Form.Item
-            style={authStyles.formItem}
-            label="Phone Number"
-            name="phoneNumber"
-          >
-            <Input size="large" />
-          </Form.Item>
+          <Row gutter={12}>
+            <Col xs={24} md={12}>
+              <Form.Item
+                style={{ ...authStyles.formItem, marginBottom: 8 }}
+                label="First Name"
+                name="firstName"
+                rules={[{ required: true, message: "Please enter first name" }]}
+              >
+                <Input size="large" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item
+                style={{ ...authStyles.formItem, marginBottom: 8 }}
+                label="Last Name"
+                name="lastName"
+                rules={[{ required: true, message: "Please enter last name" }]}
+              >
+                <Input size="large" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item
+                style={{ ...authStyles.formItem, marginBottom: 8 }}
+                label="Email"
+                name="email"
+                rules={[
+                  { required: true, message: "Please enter email" },
+                  { type: "email", message: "Please enter a valid email" },
+                  ...(inviteConfig.isInviteMode && inviteConfig.email
+                    ? [
+                        {
+                          validator: async (_: unknown, value: string) => {
+                            if (!value) return Promise.resolve();
+                            if (value.trim().toLowerCase() === inviteConfig.email?.toLowerCase()) {
+                              return Promise.resolve();
+                            }
+                            return Promise.reject(
+                              new Error("Email must match the invited email address.")
+                            );
+                          },
+                        },
+                      ]
+                    : []),
+                ]}
+              >
+                <Input size="large" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item
+                style={{ ...authStyles.formItem, marginBottom: 8 }}
+                label="Password"
+                name="password"
+                rules={[
+                  { required: true, message: "Please enter password" },
+                  { min: 6, message: "Password must be at least 6 characters" },
+                ]}
+              >
+                <Input.Password size="large" />
+              </Form.Item>
+            </Col>
+            <Col xs={24}>
+              <Form.Item
+                style={{ ...authStyles.formItem, marginBottom: 8 }}
+                label="Phone Number"
+                name="phoneNumber"
+              >
+                <Input size="large" />
+              </Form.Item>
+            </Col>
+          </Row>
 
           {!inviteConfig.isInviteMode ? (
             <>
               <Form.Item
-                style={authStyles.formItem}
+                style={{ ...authStyles.formItem, marginBottom: 8 }}
                 name="isAdminTenant"
                 valuePropName="checked"
               >
@@ -288,7 +283,7 @@ export default function RegisterPage() {
               </Form.Item>
 
               <Form.Item
-                style={authStyles.formItem}
+                style={{ ...authStyles.formItem, marginBottom: 8 }}
                 label="Tenant Name"
                 name="tenantName"
                 rules={
@@ -298,42 +293,6 @@ export default function RegisterPage() {
                 }
               >
                 <Input size="large" disabled={!isAdminTenant} />
-              </Form.Item>
-
-              <Form.Item
-                style={authStyles.formItem}
-                label="Tenant ID (join existing)"
-                name="tenantId"
-                rules={[
-                  {
-                    validator: async (_: unknown, value?: string) => {
-                      const trimmed = value?.trim();
-                      if (!trimmed || isGuid(trimmed)) return Promise.resolve();
-                      return Promise.reject(new Error("Tenant ID must be a valid GUID."));
-                    },
-                  },
-                ]}
-              >
-                <Input size="large" disabled={!!isAdminTenant} />
-              </Form.Item>
-
-              <Form.Item
-                style={authStyles.formItem}
-                label="Role"
-                name="role"
-                initialValue={Roles.SalesRep}
-              >
-                <Select
-                  disabled={!!isAdminTenant}
-                  options={[
-                    { value: Roles.SalesRep, label: "SalesRep" },
-                    { value: Roles.SalesManager, label: "SalesManager" },
-                    {
-                      value: Roles.BusinessDevelopmentManager,
-                      label: "BusinessDevelopmentManager",
-                    },
-                  ]}
-                />
               </Form.Item>
             </>
           ) : null}

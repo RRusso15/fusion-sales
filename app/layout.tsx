@@ -2,6 +2,7 @@
 
 import { AuthProvider } from "@/providers/authProvider";
 import "antd/dist/reset.css";
+import "@/styles/motion.css";
 import { App as AntdApp, ConfigProvider, theme as antdTheme } from "antd";
 import themeConfig from "@/config/theme.json";
 import { AppShell } from "@/components/layout/AppShell";

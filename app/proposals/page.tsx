@@ -38,6 +38,7 @@ import {
   useOpportunityActions,
   useOpportunityState,
 } from "@/providers/opportunityProvider";
+import { shouldReduceMotion } from "@/utils/motion";
 
 const ProposalsContent = () => {
   const { message: appMessage } = App.useApp();
@@ -54,6 +55,7 @@ const ProposalsContent = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingProposalId, setEditingProposalId] = useState<string | null>(null);
   const [exportingProposalId, setExportingProposalId] = useState<string | null>(null);
+  const [flashedProposalId, setFlashedProposalId] = useState<string | null>(null);
   const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
 
@@ -91,10 +93,21 @@ const ProposalsContent = () => {
     load().catch(() => undefined);
   }, [load]);
 
-  const runAction = async (fn: () => Promise<void>, successMessage: string) => {
+  const runAction = async (
+    fn: () => Promise<void>,
+    successMessage: string,
+    changedProposalId?: string
+  ) => {
     try {
       await fn();
       await load();
+      if (!shouldReduceMotion() && changedProposalId) {
+        setFlashedProposalId(changedProposalId);
+        setTimeout(
+          () => setFlashedProposalId((current) => (current === changedProposalId ? null : current)),
+          280
+        );
+      }
       appMessage.success(successMessage);
     } catch (error) {
       appMessage.error(getErrorMessage(error, "Action failed"));
@@ -111,6 +124,8 @@ const ProposalsContent = () => {
         appMessage.warning("Primary action succeeded. Follow-up automation failed.");
       }
       await load();
+      setFlashedProposalId(proposalId);
+      setTimeout(() => setFlashedProposalId((current) => (current === proposalId ? null : current)), 280);
       appMessage.success("Proposal approved");
     } catch (error) {
       appMessage.error(getErrorMessage(error, "Action failed"));
@@ -186,8 +201,10 @@ const ProposalsContent = () => {
       title: "Status",
       dataIndex: "status",
       key: "status",
-      render: (value?: number) => (
-        <Tag>{(ProposalStatusLabels as Record<number, string>)[value ?? 0] ?? "-"}</Tag>
+      render: (value?: number, record?: IProposal) => (
+        <Tag className={record?.id === flashedProposalId ? "status-flash" : ""}>
+          {(ProposalStatusLabels as Record<number, string>)[value ?? 0] ?? "-"}
+        </Tag>
       ),
     },
     {
@@ -211,7 +228,8 @@ const ProposalsContent = () => {
                 onClick={() =>
                   runAction(
                     () => submitProposal(record.id),
-                    "Proposal submitted for approval"
+                    "Proposal submitted for approval",
+                    record.id
                   )
                 }
               >
@@ -234,7 +252,8 @@ const ProposalsContent = () => {
                 onClick={() =>
                   runAction(
                     () => rejectProposal(record.id, "Rejected from UI"),
-                    "Proposal rejected"
+                    "Proposal rejected",
+                    record.id
                   )
                 }
               >
