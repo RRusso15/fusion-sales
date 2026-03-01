@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
-import { Card, Col, Row, Statistic } from "antd";
+import { Button, Card, Col, Row, Space, Statistic, message } from "antd";
 import { capabilityStyles } from "@/app/capability.styles";
 import { useClientActions, useClientState } from "@/providers/clientProvider";
+import { pdfService } from "@/services/pdfService";
+import { getErrorMessage } from "@/utils/requestError";
+import { useState } from "react";
 
 export default function ClientOverviewPage() {
   const params = useParams<{ clientId: string }>();
@@ -12,6 +15,7 @@ export default function ClientOverviewPage() {
   const { stats } = useClientState();
   const { fetchClientStats } = useClientActions();
   const loadedRef = useRef(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const load = useCallback(async () => {
     await fetchClientStats(clientId);
@@ -23,8 +27,27 @@ export default function ClientOverviewPage() {
     load().catch(() => undefined);
   }, [load]);
 
+  const handleDownloadSummary = async () => {
+    setIsExporting(true);
+    try {
+      await pdfService.generateClientSummaryPdf(clientId);
+      message.success("Download started");
+    } catch (error) {
+      message.error(getErrorMessage(error, "Unable to generate client summary PDF"));
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div style={capabilityStyles.container}>
+      <Card>
+        <Space>
+          <Button type="primary" onClick={handleDownloadSummary} loading={isExporting}>
+            Download Summary
+          </Button>
+        </Space>
+      </Card>
       <Row gutter={[16, 16]}>
         <Col xs={24} md={8}>
           <Card>

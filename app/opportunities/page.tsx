@@ -34,6 +34,7 @@ import { capabilityStyles } from "../capability.styles";
 import type { IOpportunity } from "@/providers/opportunityProvider/context";
 import { getErrorMessage } from "@/utils/requestError";
 import { workflowService } from "@/utils/workflowService";
+import { pdfService } from "@/services/pdfService";
 import {
   ClientProvider,
   useClientActions,
@@ -65,6 +66,7 @@ const OpportunitiesContent = () => {
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingOpportunityId, setEditingOpportunityId] = useState<string | null>(null);
+  const [exportingOpportunityId, setExportingOpportunityId] = useState<string | null>(null);
   const [editForm] = Form.useForm();
   const [createForm] = Form.useForm();
   const createClientId = Form.useWatch("createClientId", createForm);
@@ -217,6 +219,18 @@ const OpportunitiesContent = () => {
     }
   };
 
+  const handleDownloadSummary = async (opportunityId: string) => {
+    setExportingOpportunityId(opportunityId);
+    try {
+      await pdfService.generateOpportunitySummaryPdf(opportunityId);
+      message.success("Download started");
+    } catch (error) {
+      message.error(getErrorMessage(error, "Unable to generate opportunity summary PDF"));
+    } finally {
+      setExportingOpportunityId(null);
+    }
+  };
+
   const columns: TableProps<IOpportunity>["columns"] = [
     { title: "Title", dataIndex: "title", key: "title" },
     {
@@ -285,6 +299,14 @@ const OpportunitiesContent = () => {
                 Close Lost (6)
               </Button>
             ) : null}
+            <Button
+              size="small"
+              onClick={() => handleDownloadSummary(record.id)}
+              loading={exportingOpportunityId === record.id}
+              disabled={!!exportingOpportunityId && exportingOpportunityId !== record.id}
+            >
+              Download Summary
+            </Button>
           </Space>
         );
       },

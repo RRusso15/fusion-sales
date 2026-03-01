@@ -29,6 +29,7 @@ import { ContractStatus, ContractStatusLabels } from "@/constants/enums";
 import type { IContract } from "@/providers/contractProvider/context";
 import { capabilityStyles } from "../capability.styles";
 import { getErrorMessage } from "@/utils/requestError";
+import { pdfService } from "@/services/pdfService";
 import {
   ClientProvider,
   useClientActions,
@@ -55,6 +56,7 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingContractId, setEditingContractId] = useState<string | null>(null);
+  const [exportingContractId, setExportingContractId] = useState<string | null>(null);
   const [createForm] = Form.useForm();
   const [renewalForm] = Form.useForm();
   const [editForm] = Form.useForm();
@@ -171,6 +173,21 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
     }
   };
 
+  const canExportContract = canCreate || canActivate || canCancel;
+
+  const handleDownloadPdf = async (contractId: string) => {
+    if (!canExportContract) return;
+    setExportingContractId(contractId);
+    try {
+      await pdfService.generateContractPdf(contractId);
+      message.success("Download started");
+    } catch (error) {
+      message.error(getErrorMessage(error, "Unable to generate contract PDF"));
+    } finally {
+      setExportingContractId(null);
+    }
+  };
+
   const columns: TableProps<IContract>["columns"] = [
     { title: "Title", dataIndex: "title", key: "title" },
     {
@@ -213,6 +230,16 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
               }
             >
               Cancel
+            </Button>
+          ) : null}
+          {canExportContract ? (
+            <Button
+              size="small"
+              onClick={() => handleDownloadPdf(record.id)}
+              loading={exportingContractId === record.id}
+              disabled={!!exportingContractId && exportingContractId !== record.id}
+            >
+              Download PDF
             </Button>
           ) : null}
         </Space>

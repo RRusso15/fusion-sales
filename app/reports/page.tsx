@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Card, Table, message } from "antd";
+import { Button, Card, Space, Table, message } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
 import { Roles } from "@/constants/roles";
 import { getAxiosInstance } from "@/utils/axiosInstance";
 import { capabilityStyles } from "../capability.styles";
 import { getErrorMessage } from "@/utils/requestError";
+import { pdfService } from "@/services/pdfService";
 
 interface ReportOpportunity {
   id: string;
@@ -27,6 +28,7 @@ const ReportsContent = () => {
   const [opportunities, setOpportunities] = useState<ReportOpportunity[]>([]);
   const [salesByPeriod, setSalesByPeriod] = useState<SalesByPeriod[]>([]);
   const [isPending, setIsPending] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const loadedRef = useRef(false);
 
   const load = useCallback(async () => {
@@ -65,8 +67,27 @@ const ReportsContent = () => {
     { title: "Revenue", dataIndex: "totalRevenue", key: "totalRevenue" },
   ];
 
+  const handleExportPdf = async () => {
+    setIsExportingPdf(true);
+    try {
+      await pdfService.generateReportPdf({ groupBy: "month" });
+      message.success("Download started");
+    } catch (error) {
+      message.error(getErrorMessage(error, "Unable to generate reports PDF"));
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
   return (
     <div style={capabilityStyles.container}>
+      <Card>
+        <Space>
+          <Button type="primary" onClick={handleExportPdf} loading={isExportingPdf}>
+            Export as PDF
+          </Button>
+        </Space>
+      </Card>
       <Card title="Opportunities Report">
         <Table<ReportOpportunity>
           rowKey="id"

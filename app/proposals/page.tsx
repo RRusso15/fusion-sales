@@ -27,6 +27,7 @@ import type { IProposal } from "@/providers/proposalProvider/context";
 import { capabilityStyles } from "../capability.styles";
 import { getErrorMessage } from "@/utils/requestError";
 import { workflowService } from "@/utils/workflowService";
+import { pdfService } from "@/services/pdfService";
 import {
   ClientProvider,
   useClientActions,
@@ -51,6 +52,7 @@ const ProposalsContent = () => {
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingProposalId, setEditingProposalId] = useState<string | null>(null);
+  const [exportingProposalId, setExportingProposalId] = useState<string | null>(null);
   const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
 
@@ -165,6 +167,18 @@ const ProposalsContent = () => {
     }
   };
 
+  const handleDownloadPdf = async (proposalId: string) => {
+    setExportingProposalId(proposalId);
+    try {
+      await pdfService.generateProposalPdf(proposalId);
+      message.success("Download started");
+    } catch (error) {
+      message.error(getErrorMessage(error, "Unable to generate proposal PDF"));
+    } finally {
+      setExportingProposalId(null);
+    }
+  };
+
   const columns: TableProps<IProposal>["columns"] = [
     { title: "Title", dataIndex: "title", key: "title" },
     {
@@ -226,6 +240,14 @@ const ProposalsContent = () => {
                 Reject
               </Button>
             ) : null}
+            <Button
+              size="small"
+              onClick={() => handleDownloadPdf(record.id)}
+              loading={exportingProposalId === record.id}
+              disabled={!!exportingProposalId && exportingProposalId !== record.id}
+            >
+              Download PDF
+            </Button>
           </Space>
         );
       },
