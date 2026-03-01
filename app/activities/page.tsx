@@ -293,7 +293,7 @@ const ActivitiesContent = () => {
   const assigneeOptions = [
     ...tenantUsers.map((entry) => ({
       value: entry.id,
-      label: `${entry.fullName || `${entry.firstName} ${entry.lastName}`.trim() || entry.email} (${entry.id.slice(0, 8)})`,
+      label: `${entry.fullName || `${entry.firstName} ${entry.lastName}`.trim() || entry.email}`,
     })),
   ].filter(
     (candidate, index, self) =>
@@ -304,31 +304,31 @@ const ActivitiesContent = () => {
     if (createRelatedType === RelatedToType.Client) {
       return clients.map((client) => ({
         value: client.id,
-        label: `${client.name} (${client.id.slice(0, 8)})`,
+        label: `${client.name}`,
       }));
     }
     if (createRelatedType === RelatedToType.Opportunity) {
       return opportunities.map((opportunity) => ({
         value: opportunity.id,
-        label: `${opportunity.title} (${opportunity.id.slice(0, 8)})`,
+        label: `${opportunity.title}`,
       }));
     }
     if (createRelatedType === RelatedToType.Proposal) {
       return proposals.map((proposal) => ({
         value: proposal.id,
-        label: `${proposal.title} (${proposal.id.slice(0, 8)})`,
+        label: `${proposal.title}`,
       }));
     }
     if (createRelatedType === RelatedToType.Contract) {
       return contracts.map((contract) => ({
         value: contract.id,
-        label: `${contract.title} (${contract.id.slice(0, 8)})`,
+        label: `${contract.title}`,
       }));
     }
     if (createRelatedType === RelatedToType.Activity) {
       return activities.map((activity) => ({
         value: activity.id,
-        label: `${activity.subject} (${activity.id.slice(0, 8)})`,
+        label: `${activity.subject}`,
       }));
     }
     return [];
@@ -390,7 +390,7 @@ const ActivitiesContent = () => {
                 >
                   <DatePicker disabled={!canCreate} style={{ width: "100%" }} />
                 </Form.Item>
-                <Form.Item name="createAssignedToId" label="Assigned User ID">
+                <Form.Item name="createAssignedToId" label="Assigned User">
                   <Select
                     disabled={!canCreate}
                     options={assigneeOptions}
@@ -411,7 +411,7 @@ const ActivitiesContent = () => {
                         )}
                       />
                     </Form.Item>
-                    <Form.Item name="createRelatedId" label="Related ID">
+                    <Form.Item name="createRelatedId" label="Related Record">
                       <Select
                         disabled={!canCreate || !createRelatedType}
                         options={relatedOptions}
@@ -434,12 +434,12 @@ const ActivitiesContent = () => {
             label: "Cancel Activity",
             children: (
               <Form layout="vertical" onFinish={onCancelById}>
-                <Form.Item name="cancelId" label="Activity ID">
+                <Form.Item name="cancelId" label="Activity">
                   <Select
                     disabled={!canCreate}
                     options={activities.map((activity) => ({
                       value: activity.id,
-                      label: `${activity.subject} (${activity.id.slice(0, 8)})`,
+                      label: `${activity.subject}`,
                     }))}
                     showSearch
                     optionFilterProp="label"
@@ -514,6 +514,8 @@ export function ActivitiesModule() {
 export default function ActivitiesPage() {
   return <ActivitiesModule />;
 }
+
+
 
 
 

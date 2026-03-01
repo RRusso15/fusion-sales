@@ -355,24 +355,24 @@ const OpportunitiesContent = () => {
                   <Input disabled={!canCreate} />
                 </Form.Item>
                 {!clientId ? (
-                  <Form.Item name="createClientId" label="Client ID">
+                  <Form.Item name="createClientId" label="Client">
                     <Select
                       disabled={!canCreate}
                       options={clients.map((client) => ({
                         value: client.id,
-                        label: `${client.name} (${client.id.slice(0, 8)})`,
+                        label: `${client.name}`,
                       }))}
                       showSearch
                       optionFilterProp="label"
                     />
                   </Form.Item>
                 ) : null}
-                <Form.Item name="createContactId" label="Contact ID">
+                <Form.Item name="createContactId" label="Contact">
                   <Select
                     disabled={!canCreate}
                     options={filteredContacts.map((contact) => ({
                       value: contact.id,
-                      label: `${contact.firstName} ${contact.lastName} (${contact.id.slice(0, 8)})`,
+                      label: `${contact.firstName} ${contact.lastName}`,
                     }))}
                     showSearch
                     optionFilterProp="label"
@@ -412,23 +412,23 @@ const OpportunitiesContent = () => {
             label: "Assign Opportunity",
             children: (
               <Form layout="vertical" onFinish={onCreateAssign}>
-                <Form.Item name="assignId" label="Opportunity ID">
+                <Form.Item name="assignId" label="Opportunity">
                   <Select
                     disabled={!canAssign}
                     options={opportunities.map((opportunity) => ({
                       value: opportunity.id,
-                      label: `${opportunity.title} (${opportunity.id.slice(0, 8)})`,
+                      label: `${opportunity.title}`,
                     }))}
                     showSearch
                     optionFilterProp="label"
                   />
                 </Form.Item>
-                <Form.Item name="assignUserId" label="User ID">
+                <Form.Item name="assignUserId" label="User">
                   <Select
                     disabled={!canAssign}
                     options={assignableUsers.map((entry) => ({
                       value: entry.userId,
-                      label: `${entry.userName} (${entry.userId.slice(0, 8)})`,
+                      label: `${entry.userName}`,
                     }))}
                     showSearch
                     optionFilterProp="label"
@@ -499,5 +499,7 @@ export function OpportunitiesModule() {
 export default function OpportunitiesPage() {
   return <OpportunitiesModule />;
 }
+
+
 
 

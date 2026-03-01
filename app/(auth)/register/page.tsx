@@ -250,7 +250,7 @@ export default function RegisterPage() {
             </Col>
             <Col xs={24} md={12}>
               <Form.Item
-                style={{ ...authStyles.formItem, marginBottom: 8 }}
+                style={{ ...authStyles.formItem, marginBottom: 6 }}
                 label="Password"
                 name="password"
                 rules={[
@@ -263,7 +263,7 @@ export default function RegisterPage() {
             </Col>
             <Col xs={24}>
               <Form.Item
-                style={{ ...authStyles.formItem, marginBottom: 8 }}
+                style={{ ...authStyles.formItem, marginBottom: 6 }}
                 label="Phone Number"
                 name="phoneNumber"
               >
@@ -275,7 +275,7 @@ export default function RegisterPage() {
           {!inviteConfig.isInviteMode ? (
             <>
               <Form.Item
-                style={{ ...authStyles.formItem, marginBottom: 8 }}
+                style={{ ...authStyles.formItem, marginBottom: 6 }}
                 name="isAdminTenant"
                 valuePropName="checked"
               >
@@ -283,7 +283,7 @@ export default function RegisterPage() {
               </Form.Item>
 
               <Form.Item
-                style={{ ...authStyles.formItem, marginBottom: 8 }}
+                style={{ ...authStyles.formItem, marginBottom: 6 }}
                 label="Tenant Name"
                 name="tenantName"
                 rules={
@@ -317,14 +317,6 @@ export default function RegisterPage() {
         Already have an account?{" "}
         <Link href="/login">Sign in</Link>
       </Typography.Text>
-      
-
-      <div style={authStyles.bottomBar}>
-        <Typography.Text type="secondary">
-          &#xA9; {new Date().getFullYear()} Fusion Sales |{" "}
-          <Link href="/privacy">Privacy Policy</Link>
-        </Typography.Text>
-      </div>
     </>
   );
 }

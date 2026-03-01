@@ -24,7 +24,7 @@ const ExpiringContractsContent = () => {
   const columns: TableProps<IContract>["columns"] = useMemo(
     () => [
       { title: "Title", dataIndex: "title", key: "title" },
-      { title: "Client ID", dataIndex: "clientId", key: "clientId" },
+      { title: "Client", dataIndex: "clientId", key: "clientId" },
       {
         title: "Value",
         dataIndex: "contractValue",
@@ -86,3 +86,4 @@ export default function ExpiringContractsPage() {
     </ContractProvider>
   );
 }
+

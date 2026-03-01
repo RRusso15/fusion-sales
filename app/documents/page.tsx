@@ -719,7 +719,7 @@ const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
                     </Form.Item>
                     <Form.Item
                       name="relatedToId"
-                      label="Related ID"
+                      label="Related Record"
                       rules={[
                         {
                           validator: async (_, value) => {
@@ -740,14 +740,14 @@ const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
                           placeholder="Select client"
                           options={relatedClients.map((client) => ({
                             value: client.id,
-                            label: `${client.name || "Unnamed Client"} (${client.id.slice(0, 8)})`,
+                            label: `${client.name || "Unnamed Client"}`,
                           }))}
                         />
                       ) : (
                         <Input
                           placeholder={
                             relatedToTypeValue !== undefined
-                              ? "Enter related record ID"
+                              ? "Select related record"
                               : "Select Related Type first"
                           }
                         />
@@ -887,5 +887,7 @@ export default function DocumentsPage() {
   }, [router]);
   return null;
 }
+
+
 
 

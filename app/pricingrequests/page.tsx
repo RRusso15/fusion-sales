@@ -266,7 +266,7 @@ const PricingRequestsContent = () => {
               options={[
                 ...tenantUsers.map((entry) => ({
                   value: entry.id,
-                  label: `${entry.fullName || `${entry.firstName} ${entry.lastName}`.trim() || entry.email} (${entry.id.slice(0, 8)})`,
+                  label: `${entry.fullName || `${entry.firstName} ${entry.lastName}`.trim() || entry.email}`,
                 })),
               ].filter(
                 (candidate, index, self) =>
@@ -320,37 +320,37 @@ const PricingRequestsContent = () => {
                   <Input.TextArea disabled={!canCreate} />
                 </Form.Item>
                 {!clientId ? (
-                  <Form.Item name="createClientId" label="Client ID">
+                  <Form.Item name="createClientId" label="Client">
                     <Select
                       disabled={!canCreate}
                       options={clients.map((client) => ({
                         value: client.id,
-                        label: `${client.name} (${client.id.slice(0, 8)})`,
+                        label: `${client.name}`,
                       }))}
                       showSearch
                       optionFilterProp="label"
                     />
                   </Form.Item>
                 ) : null}
-                <Form.Item name="createOpportunityId" label="Opportunity ID">
+                <Form.Item name="createOpportunityId" label="Opportunity">
                   <Select
                     disabled={!canCreate}
                     allowClear
                     options={opportunities.map((opportunity) => ({
                       value: opportunity.id,
-                      label: `${opportunity.title} (${opportunity.id.slice(0, 8)})`,
+                      label: `${opportunity.title}`,
                     }))}
                     showSearch
                     optionFilterProp="label"
                   />
                 </Form.Item>
-                <Form.Item name="createRequestedById" label="Requested By User ID">
+                <Form.Item name="createRequestedById" label="Requested By User">
                   <Select
                     disabled={!canCreate}
                     options={[
                       ...tenantUsers.map((entry) => ({
                         value: entry.id,
-                        label: `${entry.fullName || `${entry.firstName} ${entry.lastName}`.trim() || entry.email} (${entry.id.slice(0, 8)})`,
+                        label: `${entry.fullName || `${entry.firstName} ${entry.lastName}`.trim() || entry.email}`,
                       })),
                     ].filter(
                       (candidate, index, self) =>
@@ -433,14 +433,14 @@ const PricingRequestsContent = () => {
           </Form.Item>
           <Form.Item
             name="opportunityId"
-            label="Opportunity ID"
+            label="Opportunity"
             rules={[{ required: true, message: "Opportunity is required" }]}
           >
             <Input />
           </Form.Item>
           <Form.Item
             name="clientId"
-            label="Client ID"
+            label="Client"
             rules={[{ required: true, message: "Client is required" }]}
           >
             <Input />
@@ -473,4 +473,6 @@ export function PricingRequestsModule() {
 export default function PricingRequestsPage() {
   return <PricingRequestsModule />;
 }
+
+
 

@@ -178,7 +178,7 @@ const NotesContent = ({ clientId }: NotesModuleProps) => {
                   }))}
                 />
               </Form.Item>
-              <Form.Item name="relatedToId" label="Related ID">
+              <Form.Item name="relatedToId" label="Related Record">
                 <Input />
               </Form.Item>
             </>
@@ -207,4 +207,5 @@ export default function NotesPage() {
   }, [router]);
   return null;
 }
+
 
