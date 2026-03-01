@@ -20,6 +20,7 @@ import {
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
 import { usePermission } from "@/components/hooks/usePermission";
+import { getAxiosInstance } from "@/utils/axiosInstance";
 import {
   ContractProvider,
   useContractActions,
@@ -48,10 +49,11 @@ interface ContractsModuleProps {
 
 const ContractsContent = ({ clientId }: ContractsModuleProps) => {
   const { message: appMessage } = App.useApp();
+  const axios = getAxiosInstance();
   const { contracts, isPending } = useContractState();
   const { clients } = useClientState();
   const { users: tenantUsers } = useUsersState();
-  const { fetchContracts, createContract, updateContract, createRenewal, completeRenewal, activateContract, cancelContract } = useContractActions();
+  const { fetchContracts, createContract, updateContract, completeRenewal, activateContract, cancelContract } = useContractActions();
   const { fetchClients } = useClientActions();
   const { fetchUsers } = useUsersActions();
   const loadedRef = useRef(false);
@@ -109,9 +111,9 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
     renewalStartDate?: Dayjs;
     renewalEndDate?: Dayjs;
     renewalValue?: number;
-    renewalCompleteId?: string;
   }) => {
     try {
+      let renewalResultMessage: string | null = null;
       if ((clientId || values.createClientId) && values.createTitle && values.createValue !== undefined && values.createStartDate && values.createEndDate && canCreate) {
         await createContract({
           clientId: clientId ?? values.createClientId,
@@ -126,19 +128,36 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
         createForm.resetFields();
       }
       if (values.renewalContractId && values.renewalStartDate && values.renewalEndDate && values.renewalValue !== undefined && canCreate) {
-        await createRenewal(values.renewalContractId, {
+        const renewalResponse = await axios.post(
+          `/api/Contracts/${values.renewalContractId}/renewals`,
+          {
           proposedStartDate: values.renewalStartDate.format("YYYY-MM-DD"),
           proposedEndDate: values.renewalEndDate.format("YYYY-MM-DD"),
           proposedValue: values.renewalValue,
-        });
+          }
+        );
+        const renewalId =
+          (renewalResponse.data as { id?: string } | undefined)?.id ??
+          (renewalResponse.data as { renewalId?: string } | undefined)?.renewalId;
+
+        if (renewalId && canActivate) {
+          await completeRenewal(renewalId);
+          renewalResultMessage = "Renewal created and applied to contract.";
+        } else {
+          renewalResultMessage = "Renewal was created but not applied immediately.";
+        }
         renewalForm.resetFields();
       }
-      if (values.renewalCompleteId && canActivate) {
-        await completeRenewal(values.renewalCompleteId);
-        renewalForm.resetFields(["renewalCompleteId"]);
-      }
       await load();
-      appMessage.success("Contract action completed");
+      if (renewalResultMessage) {
+        if (renewalResultMessage.includes("not applied")) {
+          appMessage.warning(renewalResultMessage);
+        } else {
+          appMessage.success(renewalResultMessage);
+        }
+      } else {
+        appMessage.success("Contract action completed");
+      }
     } catch (error) {
       appMessage.error(getErrorMessage(error, "Unable to process contract action"));
     }
@@ -363,10 +382,7 @@ const ContractsContent = ({ clientId }: ContractsModuleProps) => {
                 <Form.Item name="renewalValue" label="Renewal: Proposed Value">
                   <InputNumber style={{ width: "100%" }} disabled={!canCreate} />
                 </Form.Item>
-                <Form.Item name="renewalCompleteId" label="Renewal">
-                  <Input disabled={!canActivate} />
-                </Form.Item>
-                {canCreate || canActivate ? (
+                {canCreate ? (
                   <Button type="primary" htmlType="submit" loading={isPending}>
                     Run Renewal Action
                   </Button>
