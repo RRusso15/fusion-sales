@@ -39,7 +39,7 @@ export const authStyles: Record<string, CSSProperties> = {
     flexDirection: "column",
     justifyContent: "flex-start",
     alignItems: "center",
-    paddingTop: 46,
+    paddingTop: 40,
     position: "relative",
     overflowY: "auto",
     paddingBottom: 96,
@@ -47,7 +47,7 @@ export const authStyles: Record<string, CSSProperties> = {
 
   bottomBar: {
     position: "absolute",
-    bottom: 20,
+    bottom: 10,
     left: 0,
     width: "100%",
     textAlign: "center",
@@ -55,33 +55,33 @@ export const authStyles: Record<string, CSSProperties> = {
 
   logoContainer: {
     textAlign: "center",
-    marginBottom: 26,
+    marginBottom: 10,
   },
 
   logo: {
-    width: 200,
+    width: 180,
     height: "auto",
     objectFit: "contain",
     },
 
   title: {
     textAlign: "center",
-    marginBottom: 6,
+    marginBottom: 1,
   },
 
   subtitle: {
     textAlign: "center",
-    marginBottom: 24,
+    marginBottom: 18,
     color: "#6b7280",
   },
 
   buttonContainer: {
     textAlign: "center",
-    marginTop: 10,
+    marginTop: 8,
     },
 
   button: {
-    height: 44,
+    height: 36,
     borderRadius: 30,
     paddingLeft: 32,
     paddingRight: 32,
@@ -89,10 +89,10 @@ export const authStyles: Record<string, CSSProperties> = {
 
   footerText: {
     textAlign: "center",
-    marginTop: 15,
+    marginTop: 12,
   },
 
   formItem: {
-    marginBottom: 10,
+    marginBottom: 8,
     },
 };
