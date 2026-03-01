@@ -1,36 +1,267 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Fusion Sales Automation Platform
 
-## Getting Started
+## What is Fusion Sales?
 
-First, run the development server:
+Fusion Sales is a multi-tenant sales automation platform designed to support the complete sales lifecycle within a single, structured system. The application enables organisations to manage clients, opportunities, proposals, contracts, activities, pricing requests, and reporting while enforcing strict role-based access and tenant isolation.
 
-```bash
+The platform is built as a frontend-driven orchestration layer on top of a fixed REST API. It focuses on clean architecture, separation of concerns, and scalability, making it suitable for enterprise environments and academic evaluation.
+
+---
+
+## Why Fusion Sales?
+
+### End-to-End Sales Lifecycle  
+Fusion Sales supports the full journey from onboarding a new organisation to closing deals, managing contracts, and handling renewals.
+
+### Multi-Tenant by Design  
+Each organisation operates within its own isolated tenant. Users only have access to data belonging to their organisation.
+
+### Role-Based Access Control  
+Permissions are enforced consistently across routes, UI actions, and API interactions.
+
+### Client-Centric Structure  
+All sales activity is organised around clients, improving clarity, traceability, and accountability.
+
+### Automation-Ready Architecture  
+The system supports frontend-driven automation and AI-assisted workflows without requiring backend changes.
+
+---
+
+# Documentation
+
+## Software Requirements Specification (SRS)
+
+### Overview
+
+Fusion Sales is a web-based sales automation system that allows authenticated users within an organisation to manage structured sales workflows. The system supports multiple user roles, enforces tenant isolation, and provides dashboards and reports for sales visibility.
+
+---
+
+## Roles and Permissions
+
+| Role | How Obtained | Access Level |
+|---|---|---|
+| Admin | Register with tenantName or assigned by another Admin | Full system access including user management, approvals, deletes |
+| SalesManager | Join organisation with role SalesManager | Approvals, assignments, deletes |
+| BusinessDevelopmentManager | Join organisation with role BDM | Manage opportunities, proposals, pricing, contracts |
+| SalesRep | Default role | Read assigned data, create activities and pricing requests |
+
+Role restrictions are enforced through route guards, UI visibility rules, and API-level authorization.
+
+---
+
+## Application Structure
+
+### Navigation by Role
+
+#### Sales Representative
+- Dashboard
+- Clients
+- Opportunities (client-scoped)
+- Activities (client-scoped)
+
+#### Admin / Sales Manager
+- Dashboard
+- Clients
+- Opportunities
+- Activities
+- Reports
+- Admin (user management)
+
+---
+
+## Client-Centric Workflow Model
+
+Fusion Sales follows a client-first interaction model.
+
+### Typical User Flow
+
+1. Select or create a client
+2. Work within the client workspace:
+   - Contacts
+   - Opportunities
+   - Activities
+   - Proposals
+   - Contracts
+3. Review aggregated metrics via the dashboard
+
+This structure prevents data duplication and ensures all sales activity is clearly attributable to a client.
+
+---
+
+## Providers Architecture
+
+The application uses a consistent four-file provider pattern for each business domain:
+
+
+### Implemented Providers
+
+- authProvider
+- clientProvider
+- contactProvider
+- opportunityProvider
+- proposalProvider
+- pricingProvider
+- contractProvider
+- activityProvider
+- dashboardProvider
+
+Each provider owns its state, encapsulates API interaction, and exposes hooks for use in UI components.
+
+---
+
+## Authentication and Authorization
+
+### Authentication Flow
+
+1. User logs in or registers
+2. JWT token is stored in cookies
+3. Axios interceptor attaches token to every request
+4. Session is restored using `/api/auth/me` on refresh
+
+### Route Protection
+
+- Edge-level protection via `proxy.ts`
+- In-app role enforcement via `AuthGuard`
+- Unauthorized users are redirected appropriately
+
+---
+
+## Automation and Workflow Orchestration
+
+Fusion Sales uses frontend-driven orchestration to automate transitions and recommendations.
+
+### Supported Automation Examples
+
+- Opportunity moved to Closed Won triggers contract creation suggestion
+- Proposal approval enables contract creation
+- Expiring contracts trigger renewal workflows
+- Proposal submission creates follow-up activities
+
+Automation is explicit, role-aware, and always requires user confirmation.
+
+---
+
+## AI-Assisted Setup
+
+The platform supports calling an external LLM from the frontend.
+
+### Example Use Case
+
+- Upload a lead or proposal document
+- Extract client, contact, opportunity, and activity data
+- Review extracted information
+- Automatically create records via existing API endpoints
+
+This reduces manual setup without modifying backend behaviour.
+
+---
+
+## Dashboards and Reporting
+
+### Dashboards
+- Pipeline overview
+- Activity summaries
+- Contract health
+- Revenue metrics
+
+### Reports
+- Opportunities report
+- Sales performance report
+- Revenue by time period
+
+Dashboards and reports are read-only aggregations.
+
+---
+
+## Documents and Notes
+
+- Documents can be attached to clients, opportunities, proposals, and contracts
+- Notes can be added to any entity
+- Selected sections can be exported as PDFs:
+  - Proposals
+  - Contracts
+  - Pricing summaries
+  - Reports
+
+---
+
+## Technology Stack
+
+- Frontend: Next.js, React, TypeScript
+- UI Framework: Ant Design
+- State Management: React Context + Reducers
+- API: REST with JWT authentication
+- Authentication: Cookie-based JWT
+- AI Integration: OpenRouter / OpenAI-compatible API
+
+---
+
+## Environment Variables
+NEXT_PUBLIC_API_URL=...
+AI_API_KEY=...
+AI_BASE_URL=https://openrouter.ai/api/v1
+
+AI_MODEL=openrouter/free
+
+
+---
+
+## Running the Application
+
+### Local Setup
+
+1. Clone the repository
+
+git clone https://github.com/RRusso15/fusion-sales
+
+
+2. Install dependencies
+
+npm install
+
+
+3. Run the development server
+
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+4. Open the application at
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+http://localhost:3000
 
-## Learn More
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deployment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The application is deployed on Vercel:
 
-## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+https://fusion-sales.vercel.app/login
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+---
+
+## Development Guidelines
+
+- Provider-based separation of concerns
+- Client-centric UI flows
+- Role-based UI and route enforcement
+- Automation must be explicit and reversible
+- No assumptions beyond the documented API contract
+
+---
+
+## Project Management
+
+- GitHub Issues for task tracking
+- Kanban board for workflow visibility
+- Milestones for development phases
+- Feature-based branching strategy
+
+---
+
+## License
+
+This project is developed for academic and demonstration purposes. It showcases enterprise frontend architecture, role-based access control, multi-tenancy, and automation-ready design using a fixed backend API.

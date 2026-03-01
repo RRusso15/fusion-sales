@@ -1,4 +1,4 @@
-export type ContractStatus = 1 | 2 | 3 | 4 | 5; // draft, active, expired, renewed, cancelled per swagger
+import { ContractStatusValue } from "@/constants/enums";
 
 export interface ContractDto {
   id: string;
@@ -14,7 +14,7 @@ export interface ContractDto {
   currency?: string | null;
   startDate: string;
   endDate: string;
-  status: ContractStatus;
+  status: ContractStatusValue;
   statusName?: string | null;
   renewalNoticePeriod: number; // days
   autoRenew: boolean;

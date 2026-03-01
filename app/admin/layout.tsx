@@ -1,4 +1,8 @@
-import { AuthGuard } from "@/components/guards/AuthGuard";
+"use client";
+
+import { Layout } from "antd";
+import { RoleGuard } from "@/components/guards/RoleGuard";
+import { RoleGroups } from "@/constants/roles";
 
 export default function AdminLayout({
   children,
@@ -6,8 +10,12 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <AuthGuard requiredRole="Admin">
-      {children}
-    </AuthGuard>
+    <RoleGuard allowedRoles={RoleGroups.adminOnly}>
+      <Layout style={{ minHeight: "100vh" }}>
+        <Layout.Content style={{ padding: 40 }}>
+          {children}
+        </Layout.Content>
+      </Layout>
+    </RoleGuard>
   );
 }

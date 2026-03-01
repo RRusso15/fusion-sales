@@ -1,21 +1,36 @@
-import type { ReactNode } from "react";
+"use client";
+import { Layout } from "antd";
+import { authStyles } from "./auth.styles";
+import "./auth.responsive.css";
+import { usePathname } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function AuthLayout({
   children,
 }: {
-  children: ReactNode;
+  children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+  const isRegister = pathname.includes("register");
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        background: "#f5f5f5",
-      }}
-    >
-      {children}
-    </div>
+    <Layout style={authStyles.layout}>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={pathname}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          style={{
+            ...authStyles.container,
+            flexDirection: isRegister ? "row-reverse" : "row",
+          }}
+          className="auth-container"
+        >
+          <div style={authStyles.leftPanel} />
+          <div style={authStyles.rightPanel}>{children}</div>
+        </motion.div>
+      </AnimatePresence>
+    </Layout>
   );
 }

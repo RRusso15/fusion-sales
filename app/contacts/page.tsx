@@ -1,0 +1,288 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  App,
+  Button,
+  Collapse,
+  Form,
+  Input,
+  Modal,
+  Select,
+  Space,
+  Switch,
+  Table,
+} from "antd";
+import type { TableProps } from "antd";
+import { AuthGuard } from "@/components/guards/AuthGuard";
+import { usePermission } from "@/components/hooks/usePermission";
+import {
+  ContactProvider,
+  useContactActions,
+  useContactState,
+} from "@/providers/contactProvider";
+import {
+  ClientProvider,
+  useClientActions,
+  useClientState,
+} from "@/providers/clientProvider";
+import type { IContact } from "@/providers/contactProvider/context";
+import { capabilityStyles } from "../capability.styles";
+import { getErrorMessage } from "@/utils/requestError";
+
+interface ContactsModuleProps {
+  clientId?: string;
+}
+
+const ContactsContent = ({ clientId }: ContactsModuleProps) => {
+  const { message: appMessage } = App.useApp();
+  const { contacts, isPending } = useContactState();
+  const { clients } = useClientState();
+  const { fetchContacts, fetchContactsByClient, createContact, updateContact, setPrimaryContact, deleteContact } = useContactActions();
+  const { fetchClients } = useClientActions();
+  const loadedRef = useRef(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingContactId, setEditingContactId] = useState<string | null>(null);
+  const [createForm] = Form.useForm();
+  const [editForm] = Form.useForm();
+
+  const { hasPermission, Permission } = usePermission();
+  const canSetPrimary = hasPermission(Permission.setPrimaryContact);
+  const canDelete = hasPermission(Permission.deleteContact);
+  const canCreate = hasPermission(Permission.createContact);
+
+  const load = useCallback(async () => {
+    if (clientId) {
+      await fetchContactsByClient(clientId);
+      return;
+    }
+    await Promise.all([
+      fetchContacts({ pageNumber: 1, pageSize: 20 }),
+      fetchClients({ pageNumber: 1, pageSize: 100 }),
+    ]);
+  }, [clientId, fetchContactsByClient, fetchContacts, fetchClients]);
+
+  useEffect(() => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
+    load().catch(() => undefined);
+  }, [load]);
+
+  const onDelete = async (id: string) => {
+    try {
+      await deleteContact(id);
+      await load();
+      appMessage.success("Contact deleted");
+    } catch (error) {
+      appMessage.error(getErrorMessage(error, "Unable to delete contact"));
+    }
+  };
+
+  const onCreate = async (values: {
+    createClientId?: string;
+    createFirstName?: string;
+    createLastName?: string;
+    createEmail?: string;
+    createPhone?: string;
+    createPosition?: string;
+    createPrimary?: boolean;
+  }) => {
+    try {
+      if ((clientId || values.createClientId) && values.createFirstName && values.createLastName && canCreate) {
+        await createContact({
+          clientId: clientId ?? values.createClientId,
+          firstName: values.createFirstName,
+          lastName: values.createLastName,
+          email: values.createEmail,
+          phoneNumber: values.createPhone,
+          position: values.createPosition,
+          isPrimaryContact: values.createPrimary,
+        });
+        createForm.resetFields();
+      }
+      await load();
+      appMessage.success("Contact created");
+    } catch (error) {
+      appMessage.error(getErrorMessage(error, "Unable to create contact"));
+    }
+  };
+
+  const openEdit = (contact: IContact) => {
+    if (!canCreate) return;
+    setEditingContactId(contact.id);
+    editForm.setFieldsValue({
+      firstName: contact.firstName,
+      lastName: contact.lastName,
+      email: contact.email,
+      phoneNumber: contact.phoneNumber,
+      position: contact.position,
+      isPrimaryContact: !!contact.isPrimaryContact,
+    });
+    setIsEditOpen(true);
+  };
+
+  const onEditSave = async () => {
+    if (!editingContactId || !canCreate) return;
+    try {
+      const values = await editForm.validateFields();
+      await updateContact(editingContactId, {
+        firstName: values.firstName,
+        lastName: values.lastName,
+        email: values.email,
+        phoneNumber: values.phoneNumber,
+        position: values.position,
+      });
+      if (values.isPrimaryContact && canSetPrimary) {
+        await setPrimaryContact(editingContactId);
+      }
+      setIsEditOpen(false);
+      setEditingContactId(null);
+      await load();
+      appMessage.success("Contact updated");
+    } catch (error) {
+      if ((error as { errorFields?: unknown })?.errorFields) return;
+      appMessage.error(getErrorMessage(error, "Unable to update contact"));
+    }
+  };
+
+  const columns: TableProps<IContact>["columns"] = [
+    { title: "First Name", dataIndex: "firstName", key: "firstName" },
+    { title: "Last Name", dataIndex: "lastName", key: "lastName" },
+    { title: "Email", dataIndex: "email", key: "email" },
+    {
+      title: "Actions",
+      key: "actions",
+      render: (_, record) => (
+        <Space>
+          {canCreate ? (
+            <Button size="small" onClick={() => openEdit(record)}>
+              Edit
+            </Button>
+          ) : null}
+          {canDelete ? (
+            <Button
+              size="small"
+              danger
+              onClick={() => onDelete(record.id)}
+            >
+              Delete
+            </Button>
+          ) : null}
+        </Space>
+      ),
+    },
+  ];
+
+  return (
+    <div style={capabilityStyles.container}>
+      <Collapse
+        items={[
+          {
+            key: "create-contact",
+            label: "Create Contact",
+            children: (
+              <Form form={createForm} layout="vertical" onFinish={onCreate}>
+                {!clientId ? (
+                  <Form.Item name="createClientId" label="Client ID">
+                    <Select
+                      disabled={!canCreate}
+                      options={clients.map((client) => ({
+                        value: client.id,
+                        label: `${client.name} (${client.id.slice(0, 8)})`,
+                      }))}
+                      showSearch
+                      optionFilterProp="label"
+                    />
+                  </Form.Item>
+                ) : null}
+                <Form.Item name="createFirstName" label="First Name">
+                  <Input disabled={!canCreate} />
+                </Form.Item>
+                <Form.Item name="createLastName" label="Last Name">
+                  <Input disabled={!canCreate} />
+                </Form.Item>
+                <Form.Item name="createEmail" label="Email">
+                  <Input disabled={!canCreate} />
+                </Form.Item>
+                <Form.Item name="createPhone" label="Phone">
+                  <Input disabled={!canCreate} />
+                </Form.Item>
+                <Form.Item name="createPosition" label="Position">
+                  <Input disabled={!canCreate} />
+                </Form.Item>
+                <Form.Item name="createPrimary" label="Is Primary" valuePropName="checked">
+                  <Switch disabled={!canCreate} />
+                </Form.Item>
+                {canCreate ? (
+                  <Button type="primary" htmlType="submit" loading={isPending}>
+                    Create Contact
+                  </Button>
+                ) : null}
+              </Form>
+            ),
+          },
+        ]}
+      />
+      <Table<IContact>
+        rowKey="id"
+        loading={isPending}
+        dataSource={contacts}
+        columns={columns}
+        pagination={{ pageSize: 10 }}
+      />
+      <Modal
+        title="Edit Contact"
+        open={isEditOpen}
+        onCancel={() => {
+          setIsEditOpen(false);
+          setEditingContactId(null);
+        }}
+        onOk={onEditSave}
+        okButtonProps={{ style: { display: canCreate ? "inline-flex" : "none" } }}
+      >
+        <Form form={editForm} layout="vertical">
+          <Form.Item name="firstName" label="First Name">
+            <Input disabled={!canCreate} />
+          </Form.Item>
+          <Form.Item name="lastName" label="Last Name">
+            <Input disabled={!canCreate} />
+          </Form.Item>
+          <Form.Item name="email" label="Email">
+            <Input disabled={!canCreate} />
+          </Form.Item>
+          <Form.Item name="phoneNumber" label="Phone">
+            <Input disabled={!canCreate} />
+          </Form.Item>
+          <Form.Item name="position" label="Position">
+            <Input disabled={!canCreate} />
+          </Form.Item>
+          <Form.Item name="isPrimaryContact" label="Primary Contact" valuePropName="checked">
+            <Switch disabled={!canSetPrimary} />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </div>
+  );
+};
+
+export function ContactsModule({ clientId }: ContactsModuleProps) {
+  return (
+    <AuthGuard>
+      <ClientProvider>
+        <ContactProvider>
+          <ContactsContent clientId={clientId} />
+        </ContactProvider>
+      </ClientProvider>
+    </AuthGuard>
+  );
+}
+
+export default function ContactsPage() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/clients");
+  }, [router]);
+  return null;
+}
+

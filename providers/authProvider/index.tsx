@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useContext, useEffect } from "react";
+import { useReducer, useContext, useEffect, useCallback } from "react";
 import {
   INITIAL_STATE,
   AuthStateContext,
@@ -17,130 +17,213 @@ import {
   registerSuccess,
   registerError,
 } from "./actions";
-
 import {
   setAuthCookie,
   removeAuthCookie,
   getAuthCookie,
 } from "@/utils/cookie";
 import { getAxiosInstance } from "@/utils/axiosInstance";
+import { normalizeRole, resolveUserRole } from "@/constants/roles";
+import { UserRole } from "./context";
+
+interface AuthApiPayload {
+  token?: string;
+  accessToken?: string;
+  tenantId?: string;
+  userId?: string;
+  user?: {
+    id?: string;
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+    roles?: string[];
+    role?: string;
+    tenantId?: string;
+  };
+  id?: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  roles?: string[];
+  role?: string;
+}
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [state, dispatch] = useReducer(AuthReducer, INITIAL_STATE);
   const axios = getAxiosInstance();
 
-  /**
-   * On App Load:
-   * 1. Check token in cookie
-   * 2. If exists → call /api/Auth/me
-   * 3. Restore session if valid
-   */
+  const parseTokenPayload = useCallback((token?: string) => {
+    if (!token) return null;
+    try {
+      const base64Payload = token.split(".")[1];
+      const normalizedPayload = base64Payload
+        .replace(/-/g, "+")
+        .replace(/_/g, "/")
+        .padEnd(Math.ceil(base64Payload.length / 4) * 4, "=");
+      return JSON.parse(Buffer.from(normalizedPayload, "base64").toString("utf8")) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const resolveRole = useCallback((roles?: string[], role?: string): IUser["role"] => {
+    return resolveUserRole(role, roles);
+  }, []);
+
+  const mapAuthData = useCallback((payload: AuthApiPayload, tokenFromState?: string) => {
+    const data = payload?.user ?? payload;
+    const token: string = payload?.token ?? payload?.accessToken ?? tokenFromState ?? "";
+    const tokenPayload = parseTokenPayload(token);
+    const tokenRole =
+      typeof tokenPayload?.role === "string"
+        ? tokenPayload.role
+        : typeof tokenPayload?.[
+            "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+          ] === "string"
+        ? String(
+            tokenPayload[
+              "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+            ]
+          )
+        : undefined;
+    const tokenRoles = Array.isArray(tokenPayload?.roles)
+      ? tokenPayload.roles.filter((value): value is string => typeof value === "string")
+      : Array.isArray(
+          tokenPayload?.[
+            "http://schemas.microsoft.com/ws/2008/06/identity/claims/roles"
+          ]
+        )
+      ? (
+          tokenPayload[
+            "http://schemas.microsoft.com/ws/2008/06/identity/claims/roles"
+          ] as unknown[]
+        ).filter((value): value is string => typeof value === "string")
+      : [];
+    const role = resolveRole(
+      [...(data?.roles ?? []), ...tokenRoles],
+      data?.role ?? tokenRole
+    );
+    const tenantId: string | undefined =
+      data?.tenantId ??
+      payload?.tenantId ??
+      (typeof tokenPayload?.tenantId === "string"
+        ? tokenPayload.tenantId
+        : typeof tokenPayload?.[
+            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/tenantid"
+          ] === "string"
+        ? String(
+            tokenPayload[
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/tenantid"
+            ]
+          )
+        : undefined);
+
+    const user: IUser = {
+      id: String(data?.id ?? payload?.userId ?? ""),
+      email: data?.email,
+      firstName: data?.firstName,
+      lastName: data?.lastName,
+      roles: data?.roles?.map((item) => normalizeRole(item) ?? item),
+      role,
+      tenantId,
+    };
+
+    return { user, token, role, tenantId };
+  }, [parseTokenPayload, resolveRole]);
+
   useEffect(() => {
     const initializeAuth = async () => {
       const token = getAuthCookie();
 
-      if (!token) return;
+      if (!token) {
+        dispatch(logoutAction());
+        return;
+      }
 
       try {
-        const response = await axios.get("/api/Auth/me");
+        const response = await axios.get("/api/auth/me");
+        const data = mapAuthData(response.data, token);
 
-        const data = response.data;
-
-        const user: IUser = {
-          id: data.userId,
-          email: data.email,
-          firstName: data.firstName,
-          lastName: data.lastName,
-          roles: data.roles,
-        };
-
-        dispatch(loginSuccess({ user, token }));
-      } catch (error) {
-        // Token invalid or expired
+        dispatch(loginSuccess({ ...data, token: token || data.token }));
+      } catch {
         removeAuthCookie();
         dispatch(logoutAction());
       }
     };
 
     initializeAuth();
-  }, []);
+  }, [axios, mapAuthData]);
 
-  /**
-   * LOGIN
-   */
   const login = async (email: string, password: string) => {
     dispatch(loginPending());
 
     try {
-      const response = await axios.post("/api/Auth/login", {
+      const response = await axios.post("/api/auth/login", {
         email,
         password,
       });
 
-      const data = response.data;
+      const data = mapAuthData(response.data);
+      if (!data.token) {
+        throw new Error("Login response missing token");
+      }
 
-      const token = data.token;
-
-      const user: IUser = {
-        id: data.userId,
-        email: data.email,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        roles: data.roles,
-      };
-
-      setAuthCookie(token);
-
-      dispatch(loginSuccess({ user, token }));
+      setAuthCookie(data.token);
+      dispatch(loginSuccess(data));
+      const meResponse = await axios.get("/api/auth/me");
+      const meData = mapAuthData(meResponse.data, data.token);
+      dispatch(
+        loginSuccess({
+          ...meData,
+          token: data.token,
+          role: meData.role ?? data.role,
+          tenantId: meData.tenantId ?? data.tenantId,
+        })
+      );
     } catch (error) {
       dispatch(loginError());
       throw error;
     }
   };
 
-  /**
-   * REGISTER
-   */
-  const register = async (
-    firstName: string,
-    lastName: string,
-    email: string,
-    password: string
-  ) => {
+  const register = async (payload: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    phoneNumber?: string;
+    tenantName?: string;
+    tenantId?: string;
+    role?: Exclude<UserRole, "Admin">;
+  }) => {
     dispatch(registerPending());
 
     try {
-      const response = await axios.post("/api/Auth/register", {
-        firstName,
-        lastName,
-        email,
-        password,
-      });
+      const response = await axios.post("/api/auth/register", payload);
 
-      const data = response.data;
+      const data = mapAuthData(response.data);
+      if (!data.token) {
+        throw new Error("Register response missing token");
+      }
 
-      const token = data.token;
-
-      const user: IUser = {
-        id: data.userId,
-        email: data.email,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        roles: data.roles,
-      };
-
-      setAuthCookie(token);
-
-      dispatch(registerSuccess({ user, token }));
+      setAuthCookie(data.token);
+      dispatch(registerSuccess(data));
+      const meResponse = await axios.get("/api/auth/me");
+      const meData = mapAuthData(meResponse.data, data.token);
+      dispatch(
+        registerSuccess({
+          ...meData,
+          token: data.token,
+          role: meData.role ?? data.role,
+          tenantId: meData.tenantId ?? data.tenantId,
+        })
+      );
     } catch (error) {
       dispatch(registerError());
       throw error;
     }
   };
 
-  /**
-   * LOGOUT
-   */
   const logout = () => {
     removeAuthCookie();
     dispatch(logoutAction());

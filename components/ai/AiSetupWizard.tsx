@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import {
   App,
   Alert,
@@ -14,7 +15,10 @@ import {
   Spin,
   Steps,
   Tag,
+  Typography,
+  Upload,
 } from "antd";
+import { UploadOutlined } from "@ant-design/icons";
 import type { UploadFile } from "antd/es/upload/interface";
 import {
   ActivityTypeLabels,
@@ -34,13 +38,22 @@ import { useAuthState } from "@/providers/authProvider";
 import { getErrorMessage } from "@/utils/requestError";
 import { capabilityStyles } from "@/app/capability.styles";
 import { PageTransition } from "@/components/ui/PageTransition";
-import { ExecutionSummaryCard } from "./wizard/ExecutionSummaryCard";
-import { InputStepCard } from "./wizard/InputStepCard";
-import { pricingRoleOptions, roleOptions, setupSteps } from "./wizard/options";
 
 interface AiSetupWizardProps {
   existingClientId?: string;
 }
+
+const roleOptions = [
+  { value: "Admin", label: "Admin" },
+  { value: "SalesManager", label: "SalesManager" },
+  { value: "BusinessDevelopmentManager", label: "BusinessDevelopmentManager" },
+  { value: "SalesRep", label: "SalesRep" },
+];
+
+const pricingRoleOptions = [
+  { value: "SalesManager", label: "SalesManager" },
+  { value: "BusinessDevelopmentManager", label: "BusinessDevelopmentManager" },
+];
 
 const readFileText = async (file: File) => {
   const body = new FormData();
@@ -69,14 +82,15 @@ export const AiSetupWizard = ({ existingClientId }: AiSetupWizardProps) => {
   const [warning, setWarning] = useState<string | null>(null);
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
 
-  const resetWizardInputs = () => {
-    setSourceText("");
-    setFileList([]);
-    setDraftPlan(normalizeSetupPlan({}));
-    setWarning(null);
-  };
-
-  const steps = useMemo(() => setupSteps, []);
+  const steps = useMemo(
+    () => [
+      { title: "Input" },
+      { title: "Draft Extract" },
+      { title: "Enhance" },
+      { title: "Review + Execute" },
+    ],
+    []
+  );
 
   const effectiveText = async () => {
     if (sourceText.trim()) return sourceText.trim();
@@ -135,7 +149,6 @@ export const AiSetupWizard = ({ existingClientId }: AiSetupWizardProps) => {
   };
 
   const runExecute = async () => {
-    setCurrentStep(3);
     setIsExecuting(true);
     setExecutionResult(null);
     try {
@@ -150,10 +163,6 @@ export const AiSetupWizard = ({ existingClientId }: AiSetupWizardProps) => {
         rawText: sourceText || undefined,
       });
       setExecutionResult(result);
-      resetWizardInputs();
-      if (typeof window !== "undefined") {
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }
       if (result.success) {
         appMessage.success("Setup execution completed.");
       } else {
@@ -175,17 +184,32 @@ export const AiSetupWizard = ({ existingClientId }: AiSetupWizardProps) => {
 
       {warning ? <Alert type="warning" showIcon title={warning} /> : null}
 
-      <InputStepCard
-        fileList={fileList}
-        sourceText={sourceText}
-        isExtracting={isExtracting}
-        isEnhancing={isEnhancing}
-        draftAvailable={!!draftPlan}
-        onFileListChange={setFileList}
-        onSourceTextChange={setSourceText}
-        onExtract={runExtract}
-        onEnhance={runEnhance}
-      />
+      <Card title="1. Input (Upload or Paste)" className="step-enter">
+        <Space orientation="vertical" style={{ width: "100%" }} className="stagger-list">
+          <Upload
+            beforeUpload={() => false}
+            maxCount={1}
+            fileList={fileList}
+            onChange={({ fileList: nextList }) => setFileList(nextList)}
+          >
+            <Button icon={<UploadOutlined />}>Upload Lead/RFP/Brief</Button>
+          </Upload>
+          <Input.TextArea
+            rows={8}
+            value={sourceText}
+            onChange={(event) => setSourceText(event.target.value)}
+            placeholder="Paste document text here..."
+          />
+          <Space>
+            <Button type="primary" onClick={runExtract} loading={isExtracting} className="press">
+              Extract (Free)
+            </Button>
+            <Button onClick={runEnhance} loading={isEnhancing} disabled={!draftPlan} className="press">
+              Enhance with AI
+            </Button>
+          </Space>
+        </Space>
+      </Card>
 
       <Card title="2-4. Review + Execute" className="step-enter">
         {isExecuting ? <Spin /> : null}
@@ -640,11 +664,56 @@ export const AiSetupWizard = ({ existingClientId }: AiSetupWizardProps) => {
         </Space>
       </Card>
 
-      {executionResult ? <ExecutionSummaryCard result={executionResult} /> : null}
+      {executionResult ? (
+        <Card title="Execution Summary" className="step-enter">
+          <Space orientation="vertical" style={{ width: "100%" }} className="stagger-list">
+            <Tag color={executionResult.success ? "green" : "orange"}>
+              {executionResult.success ? "Completed" : "Completed with issues"}
+            </Tag>
+            {executionResult.steps.map((step) => (
+              <Alert
+                key={step.key}
+                className={step.status === "success" ? "step-check" : ""}
+                type={
+                  step.status === "success"
+                    ? "success"
+                    : step.status === "failed"
+                    ? "error"
+                    : "info"
+                }
+                showIcon
+                title={`${step.label}: ${step.message}`}
+              />
+            ))}
+            {executionResult.warnings.length > 0 ? (
+              <Alert
+                type="warning"
+                showIcon
+                title={executionResult.warnings.join(" | ")}
+              />
+            ) : null}
+            {executionResult.links.length > 0 ? (
+              <>
+                <Typography.Text strong>Deep Links</Typography.Text>
+                <Space wrap>
+                  {executionResult.links.map((link) => (
+                    <Link href={link.href} key={link.href}>
+                      <Button size="small">{link.label}</Button>
+                    </Link>
+                  ))}
+                </Space>
+              </>
+            ) : null}
+          </Space>
+        </Card>
+      ) : null}
     </div>
     </PageTransition>
   );
 };
+
+
+
 
 
 

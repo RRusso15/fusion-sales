@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { getAuthCookie, removeAuthCookie } from "./cookie";
 
 let axiosInstance: ReturnType<typeof axios.create> | null = null;
@@ -6,33 +6,60 @@ let axiosInstance: ReturnType<typeof axios.create> | null = null;
 export const getAxiosInstance = () => {
   if (axiosInstance) return axiosInstance;
 
+  const baseURL = process.env.NEXT_PUBLIC_API_URL;
+
+  if (!baseURL) {
+    throw new Error("NEXT_PUBLIC_API_URL is not defined");
+  }
+
   axiosInstance = axios.create({
-    baseURL:
-      process.env.NEXT_PUBLIC_API_URL,
+    baseURL,
     headers: {
       "Content-Type": "application/json",
     },
   });
 
-  // attach Bearer token automatically
+  /**
+   * Attach Bearer token automatically
+   */
   axiosInstance.interceptors.request.use((config) => {
     const token = getAuthCookie();
+
     if (token) {
+      config.headers = config.headers ?? {};
       config.headers.Authorization = `Bearer ${token}`;
     }
+
     return config;
   });
 
-  // handle 401 globally
+  /**
+   * Handle auth/authorization globally
+   */
   axiosInstance.interceptors.response.use(
     (response) => response,
-    (error) => {
-      if (error.response?.status === 401) {
+    (error: AxiosError) => {
+      const status = error.response?.status;
+
+      if (status === 401) {
         removeAuthCookie();
+
         if (typeof window !== "undefined") {
-          window.location.href = "/login";
+          const currentPath = window.location.pathname;
+
+          // prevent redirect loop
+          if (!currentPath.startsWith("/login")) {
+            window.location.href = "/login";
+          }
         }
       }
+      if (status === 403 && typeof window !== "undefined") {
+        const currentPath = window.location.pathname;
+        if (!currentPath.startsWith("/unauthorized")) {
+          window.location.href = "/unauthorized";
+        }
+      }
+
       return Promise.reject(error);
     }
   );

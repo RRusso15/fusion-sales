@@ -4,11 +4,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   App,
+  Alert,
   Button,
+  Collapse,
   Form,
+  Input,
+  InputNumber,
+  Modal,
+  Select,
   Space,
   Table,
+  Upload,
 } from "antd";
+import { UploadOutlined } from "@ant-design/icons";
 import type { TableProps } from "antd";
 import type { UploadFile } from "antd/es/upload/interface";
 import { AuthGuard } from "@/components/guards/AuthGuard";
@@ -22,25 +30,143 @@ import {
   OpportunityStage,
   RelatedToType,
   RelatedToTypeLabels,
+  DocumentCategoryValue,
+  RelatedToTypeValue,
 } from "@/constants/enums";
-import type {
-  DocumentRecommendation,
-  DocumentRow,
-  DocumentsModuleProps,
-  LeadExecutionForm,
-  RelatedClientOption,
-  UploadDocumentForm,
-} from "./documentTypes";
-import {
-  decodeFileNameFromHeader,
-  fetchJsonWithTimeout,
-  getResponseItems,
-  isLikelyTextContent,
-  sourceToEnum,
-  splitName,
-} from "./documentUtils";
-import { RecommendationModal } from "@/components/documents/RecommendationModal";
-import { DocumentUploadForm } from "@/components/documents/DocumentUploadForm";
+
+interface DocumentRow {
+  id: string;
+  name?: string;
+  fileName?: string;
+  documentCategory?: number;
+  category?: number;
+  relatedToType?: number;
+  relatedToId?: string;
+  createdAt?: string;
+}
+
+interface UploadDocumentForm {
+  documentCategory?: DocumentCategoryValue;
+  relatedToType?: RelatedToTypeValue;
+  relatedToId?: string;
+  description?: string;
+}
+
+interface AIExtractedLeadFields {
+  clientName?: string | null;
+  industry?: string | null;
+  website?: string | null;
+  contactFirstName?: string | null;
+  contactLastName?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  contactPosition?: string | null;
+  opportunityTitle?: string | null;
+  estimatedValue?: number | null;
+  source?: "Inbound" | "Outbound" | "Referral" | "Partner" | "RFP" | null;
+}
+
+interface DocumentRecommendation {
+  documentType?: "lead" | "contract" | "invoice" | "proposal" | "report" | "other";
+  recommendedAction?: "create_lead_opportunity" | "none";
+  confidence?: number;
+  reasoning?: string;
+  extracted?: AIExtractedLeadFields;
+}
+
+interface LeadExecutionForm {
+  clientName: string;
+  industry?: string;
+  website?: string;
+  contactFirstName?: string;
+  contactLastName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  contactPosition?: string;
+  opportunityTitle?: string;
+  estimatedValue?: number;
+  source?: "Inbound" | "Outbound" | "Referral" | "Partner" | "RFP";
+}
+
+interface RelatedClientOption {
+  id: string;
+  name?: string | null;
+}
+
+interface DocumentsModuleProps {
+  clientId?: string;
+}
+
+const sourceToEnum: Record<NonNullable<LeadExecutionForm["source"]>, number> = {
+  Inbound: OpportunitySource.Inbound,
+  Outbound: OpportunitySource.Outbound,
+  Referral: OpportunitySource.Referral,
+  Partner: OpportunitySource.Partner,
+  RFP: OpportunitySource.Rfp,
+};
+
+const splitName = (value?: string) => {
+  if (!value) return { firstName: "", lastName: "" };
+  const trimmed = value.trim();
+  if (!trimmed) return { firstName: "", lastName: "" };
+  const parts = trimmed.split(/\s+/);
+  return {
+    firstName: parts[0] ?? "",
+    lastName: parts.slice(1).join(" "),
+  };
+};
+
+const getResponseItems = <T,>(value: unknown): T[] => {
+  if (Array.isArray(value)) return value as T[];
+  if (value && typeof value === "object" && "items" in value) {
+    const withItems = value as { items?: unknown };
+    if (Array.isArray(withItems.items)) return withItems.items as T[];
+  }
+  return [];
+};
+
+const isLikelyTextContent = (fileName: string, contentType?: string) => {
+  if (contentType?.startsWith("text/")) return true;
+  const lower = fileName.toLowerCase();
+  return (
+    lower.endsWith(".txt") ||
+    lower.endsWith(".md") ||
+    lower.endsWith(".csv") ||
+    lower.endsWith(".json") ||
+    lower.endsWith(".xml") ||
+    lower.endsWith(".html") ||
+    lower.endsWith(".htm")
+  );
+};
+
+const decodeFileNameFromHeader = (
+  contentDisposition: string | undefined,
+  fallbackName: string
+) => {
+  const filenameFromHeader = contentDisposition?.match(
+    /filename\*=UTF-8''([^;]+)|filename="?([^"]+)"?/i
+  );
+  return decodeURIComponent(filenameFromHeader?.[1] || filenameFromHeader?.[2] || fallbackName);
+};
+
+const fetchJsonWithTimeout = async <T,>(
+  input: RequestInfo | URL,
+  init: RequestInit,
+  timeoutMs = 25000
+) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+    const data = (await response.json().catch(() => ({}))) as T;
+    return { response, data };
+  } finally {
+    clearTimeout(timeout);
+  }
+};
 
 const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
   const { message: appMessage } = App.useApp();
@@ -551,16 +677,94 @@ const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
 
   return (
     <div style={capabilityStyles.container}>
-      <DocumentUploadForm
-        clientId={clientId}
-        form={form}
-        fileList={fileList}
-        uploading={uploading}
-        relatedToTypeValue={relatedToTypeValue}
-        relatedClients={relatedClients}
-        relatedClientsLoading={relatedClientsLoading}
-        onUpload={onUpload}
-        onFileListChange={setFileList}
+      <Collapse
+        items={[
+          {
+            key: "upload-document",
+            label: "Upload Document",
+            children: (
+              <Form<UploadDocumentForm> form={form} layout="vertical" onFinish={onUpload}>
+                <Form.Item label="File" required>
+                  <Upload
+                    beforeUpload={() => false}
+                    fileList={fileList}
+                    maxCount={1}
+                    onChange={({ fileList: nextList }) => setFileList(nextList)}
+                  >
+                    <Button icon={<UploadOutlined />}>Select File</Button>
+                  </Upload>
+                </Form.Item>
+                <Form.Item name="documentCategory" label="Category">
+                  <Select
+                    allowClear
+                    options={Object.entries(DocumentCategoryLabels).map(([value, label]) => ({
+                      value: Number(value),
+                      label,
+                    }))}
+                  />
+                </Form.Item>
+                {!clientId ? (
+                  <>
+                    <Form.Item name="relatedToType" label="Related Type">
+                      <Select
+                        allowClear
+                        onChange={() => {
+                          form.setFieldValue("relatedToId", undefined);
+                        }}
+                        options={Object.entries(RelatedToTypeLabels).map(([value, label]) => ({
+                          value: Number(value),
+                          label,
+                        }))}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name="relatedToId"
+                      label="Related ID"
+                      rules={[
+                        {
+                          validator: async (_, value) => {
+                            const selectedType = form.getFieldValue("relatedToType");
+                            if (selectedType !== undefined && !value) {
+                              throw new Error("Select a related record");
+                            }
+                          },
+                        },
+                      ]}
+                    >
+                      {relatedToTypeValue === 1 ? (
+                        <Select
+                          showSearch
+                          allowClear
+                          loading={relatedClientsLoading}
+                          optionFilterProp="label"
+                          placeholder="Select client"
+                          options={relatedClients.map((client) => ({
+                            value: client.id,
+                            label: `${client.name || "Unnamed Client"} (${client.id.slice(0, 8)})`,
+                          }))}
+                        />
+                      ) : (
+                        <Input
+                          placeholder={
+                            relatedToTypeValue !== undefined
+                              ? "Enter related record ID"
+                              : "Select Related Type first"
+                          }
+                        />
+                      )}
+                    </Form.Item>
+                  </>
+                ) : null}
+                <Form.Item name="description" label="Description">
+                  <Input.TextArea rows={3} />
+                </Form.Item>
+                <Button type="primary" htmlType="submit" loading={uploading}>
+                  Upload Document
+                </Button>
+              </Form>
+            ),
+          },
+        ]}
       />
       <Table<DocumentRow>
         rowKey="id"
@@ -569,18 +773,101 @@ const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
         columns={columns}
         pagination={{ pageSize: 10 }}
       />
-      <RecommendationModal
+      <Modal
+        title="AI Recommendation"
         open={isRecommendationOpen}
-        selectedDocument={selectedRecommendationDoc}
-        recommendationByDocumentId={recommendationByDocumentId}
-        executionForm={executionForm}
-        applyingDocumentId={applyingDocumentId}
         onCancel={() => {
           setIsRecommendationOpen(false);
           setSelectedRecommendationDoc(null);
         }}
-        onConfirm={applyRecommendation}
-      />
+        onOk={applyRecommendation}
+        okText="Approve & Run"
+        okButtonProps={{
+          loading: applyingDocumentId === selectedRecommendationDoc?.id,
+          disabled:
+            !selectedRecommendationDoc ||
+            recommendationByDocumentId[selectedRecommendationDoc.id]?.recommendedAction !==
+              "create_lead_opportunity",
+        }}
+      >
+        {selectedRecommendationDoc ? (
+          <>
+            <Alert
+              type={
+                recommendationByDocumentId[selectedRecommendationDoc.id]?.recommendedAction ===
+                "create_lead_opportunity"
+                  ? "success"
+                  : "info"
+              }
+              showIcon
+              title={`Recommended action: ${
+                recommendationByDocumentId[selectedRecommendationDoc.id]?.recommendedAction ===
+                "create_lead_opportunity"
+                  ? "Create Lead Opportunity"
+                  : "No automatic action"
+              }`}
+              description={`Confidence: ${Math.round(
+                (recommendationByDocumentId[selectedRecommendationDoc.id]?.confidence ?? 0) * 100
+              )}% | Type: ${
+                recommendationByDocumentId[selectedRecommendationDoc.id]?.documentType ?? "other"
+              }${
+                recommendationByDocumentId[selectedRecommendationDoc.id]?.reasoning
+                  ? ` | ${recommendationByDocumentId[selectedRecommendationDoc.id]?.reasoning}`
+                  : ""
+              }`}
+              style={{ marginBottom: 16 }}
+            />
+            <Form form={executionForm} layout="vertical">
+              <Form.Item
+                name="clientName"
+                label="Client Name"
+                rules={[{ required: true, message: "Client name is required" }]}
+              >
+                <Input />
+              </Form.Item>
+              <Form.Item name="industry" label="Industry">
+                <Input />
+              </Form.Item>
+              <Form.Item name="website" label="Website">
+                <Input />
+              </Form.Item>
+              <Form.Item name="contactFirstName" label="Contact First Name">
+                <Input />
+              </Form.Item>
+              <Form.Item name="contactLastName" label="Contact Last Name">
+                <Input />
+              </Form.Item>
+              <Form.Item name="contactEmail" label="Contact Email">
+                <Input />
+              </Form.Item>
+              <Form.Item name="contactPhone" label="Contact Phone">
+                <Input />
+              </Form.Item>
+              <Form.Item name="contactPosition" label="Contact Position">
+                <Input />
+              </Form.Item>
+              <Form.Item name="opportunityTitle" label="Opportunity Title">
+                <Input />
+              </Form.Item>
+              <Form.Item name="estimatedValue" label="Estimated Value">
+                <InputNumber style={{ width: "100%" }} />
+              </Form.Item>
+              <Form.Item name="source" label="Source">
+                <Select
+                  allowClear
+                  options={[
+                    { value: "Inbound", label: "Inbound" },
+                    { value: "Outbound", label: "Outbound" },
+                    { value: "Referral", label: "Referral" },
+                    { value: "Partner", label: "Partner" },
+                    { value: "RFP", label: "RFP" },
+                  ]}
+                />
+              </Form.Item>
+            </Form>
+          </>
+        ) : null}
+      </Modal>
     </div>
   );
 };

@@ -1,0 +1,9 @@
+{
+  "token": {
+    "colorPrimary": "#008080",
+    "colorInfo": "#008080",
+    "colorSuccess": "#1d6672",
+    "borderRadius": 10,
+    "fontSize": 13
+  }
+}

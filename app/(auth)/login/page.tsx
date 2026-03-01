@@ -1,93 +1,109 @@
 "use client";
-/*
-import { Button, Typography, Space, Card } from "antd";
+
+import { App, Form, Input, Button, Typography } from "antd";
+import { useAuthActions, useAuthState } from "@/providers/authProvider";
 import { useRouter } from "next/navigation";
+import { authStyles } from "../auth.styles";
+import Link from "next/link";
+import Image from "next/image";
 
-const { Title, Text } = Typography;
-
-
-export default function LoginPage() {
-  const router = useRouter();
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "100vh",
-      }}
-    >
-      <Card style={{ width: 400 }}>
-        
-        <Title level={3}>Select Login Type</Title>
-
-        <Text>Choose which dashboard to enter:</Text>
-
-        <Button
-          type="primary"
-          block
-          onClick={() => router.push("/user/dashboard")}
-        >
-          Login as User
-        </Button>
-
-        <Button
-          type="default"
-          block
-          onClick={() => router.push("/admin/dashboard")}
-        >
-          Login as Admin
-        </Button>
-        
-      </Card>
-    </div>
-  );
+interface LoginFormValues {
+  email: string;
+  password: string;
 }
-  */
-
-import { useRouter } from "next/navigation";
-import { Button, Typography, Space, Card } from "antd";
-const { Title, Text } = Typography;
-
-
 export default function LoginPage() {
+  const { message: appMessage } = App.useApp();
+  const { login } = useAuthActions();
+  const { isPending } = useAuthState();
   const router = useRouter();
 
-  const handleLogin = (role: "user" | "admin") => {
-    document.cookie = "auth_token=dummy_token; path=/";
-
-    if (role === "user") {
-      router.push("/user/dashboard");
-    } else {
-      router.push("/admin/dashboard");
+  const onFinish = async (values: LoginFormValues) => {
+    try {
+      await login(values.email, values.password);
+      appMessage.success("Login successful");
+      router.push("/");
+    } catch {
+      appMessage.error("Login failed");
     }
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "100vh",
-      }}
-    >
-      <Card style={{ width: 400 }}>
-        
-        <Title level={3}>Select Login Type</Title>
+    <>
+      <div style={authStyles.logoContainer}>
+        <Image
+          src="/images/logo.png"
+          alt="Fusion Sales Logo"
+          width={200}
+          height={200}
+          style={authStyles.logo}
+          priority
+        />
+      </div>
 
-        <Text>Choose which dashboard to enter:</Text>
+      <Typography.Title level={3} style={authStyles.title}>
+        Welcome Back
+      </Typography.Title>
 
-        <Button onClick={() => handleLogin("user")}>
-            Login as User
-          </Button>
+      <Typography.Text style={authStyles.subtitle}>
+        Enter your details to sign in
+      </Typography.Text>
 
-        <Button onClick={() => handleLogin("admin")}>
-          Login as Admin
-        </Button>
-        
-      </Card>
-    </div>
+      <div style={authStyles.formContainer}>
+        <Form layout="vertical" onFinish={onFinish}>
+          <Form.Item
+            style={authStyles.formItem}
+            label="Email"
+            name="email"
+            rules={[{ required: true, message: "Please enter email" }]}
+          >
+            <Input size="large" placeholder="email@fusionsales.io" />
+          </Form.Item>
+
+          <Form.Item
+            style={authStyles.formItem}
+            label="Password"
+            name="password"
+            rules={[{ required: true, message: "Please enter password" }]}
+          >
+            <Input.Password size="large" placeholder="************" />
+          </Form.Item>
+
+          <Form.Item style={authStyles.formItem}>
+            <div style={authStyles.buttonContainer}>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={isPending}
+                style={authStyles.button}
+              >
+                Sign In
+              </Button>
+            </div>
+          </Form.Item>
+        </Form>
+      </div>
+
+      <div style={authStyles.footerText}>
+        <Typography.Text>
+          Don’t have an account?{" "}
+          <Link href="/register">Sign up</Link>
+        </Typography.Text>
+      </div>
+
+      <div style={authStyles.bottomBar}>
+        <Typography.Text type="secondary">
+          &#xA9; {new Date().getFullYear()} Fusion Sales |{" "}
+          <Link href="/privacy">Privacy Policy</Link>
+        </Typography.Text>
+      </div>
+
+    </>
   );
 }
+
+
+
+
+
+
+
