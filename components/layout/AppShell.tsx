@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BarChartOutlined,
   ContactsOutlined,
@@ -17,7 +18,7 @@ import {
   SolutionOutlined,
   TeamOutlined,
 } from "@ant-design/icons";
-import { Button, Layout, Typography } from "antd";
+import { Button, Layout, Spin, Typography } from "antd";
 import { appShellStyles } from "./appShell.styles";
 import { useAuthActions, useAuthState } from "@/providers/authProvider";
 import { hasPermission, Permission } from "@/constants/permissions";
@@ -74,12 +75,81 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   const { role, user, isAuthenticated } = useAuthState();
   const { logout } = useAuthActions();
+  const [isRouteLoading, setIsRouteLoading] = useState(false);
+  const routeLoadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const startRouteLoading = useCallback(() => {
+    setIsRouteLoading(true);
+    if (routeLoadingTimeoutRef.current) {
+      clearTimeout(routeLoadingTimeoutRef.current);
+    }
+    routeLoadingTimeoutRef.current = setTimeout(() => {
+      setIsRouteLoading(false);
+    }, 10000);
+  }, []);
 
   const activeRole = resolveUserRole(role, user?.roles);
   const isPublicPath = publicPaths.has(pathname);
   const clientWorkspaceMatch = pathname.match(/^\/clients\/([^/]+)(?:\/.*)?$/);
   const activeClientId = clientWorkspaceMatch?.[1];
   const isClientWorkspace = Boolean(activeClientId && pathname !== "/clients");
+
+  useEffect(() => {
+    setIsRouteLoading(false);
+    if (routeLoadingTimeoutRef.current) {
+      clearTimeout(routeLoadingTimeoutRef.current);
+      routeLoadingTimeoutRef.current = null;
+    }
+  }, [pathname]);
+
+  useEffect(() => {
+    const handleDocumentClick = (event: MouseEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      const anchor = target?.closest("a[href]") as HTMLAnchorElement | null;
+      if (!anchor) return;
+      if (anchor.target && anchor.target !== "_self") return;
+      if (anchor.hasAttribute("download")) return;
+
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) {
+        return;
+      }
+
+      const targetUrl = new URL(anchor.href, window.location.href);
+      if (targetUrl.origin !== window.location.origin) return;
+
+      const currentPath = `${window.location.pathname}${window.location.search}`;
+      const nextPath = `${targetUrl.pathname}${targetUrl.search}`;
+      if (nextPath === currentPath) return;
+
+      startRouteLoading();
+    };
+
+    document.addEventListener("click", handleDocumentClick, true);
+    return () => {
+      document.removeEventListener("click", handleDocumentClick, true);
+    };
+  }, [startRouteLoading]);
+
+  useEffect(
+    () => () => {
+      if (routeLoadingTimeoutRef.current) {
+        clearTimeout(routeLoadingTimeoutRef.current);
+      }
+    },
+    []
+  );
 
   if (isPublicPath || !isAuthenticated) {
     return <>{children}</>;
@@ -187,6 +257,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
             style={appShellStyles.logoutButton}
             icon={<LogoutOutlined />}
             onClick={() => {
+              startRouteLoading();
               logout();
               router.push("/login");
             }}
@@ -197,6 +268,11 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
       </aside>
 
       <Layout.Content style={appShellStyles.main}>
+        {isRouteLoading ? (
+          <div style={appShellStyles.routeLoadingOverlay}>
+            <Spin size="large" tip="Loading..." />
+          </div>
+        ) : null}
         <div style={appShellStyles.headingWrap}>
           <div style={appShellStyles.headingTextWrap}>
             <Typography.Title level={1} style={appShellStyles.headingTitle}>

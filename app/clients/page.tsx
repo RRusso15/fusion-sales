@@ -36,6 +36,7 @@ const ClientsContent = () => {
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
+  const [openingClientId, setOpeningClientId] = useState<string | null>(null);
   const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
 
@@ -134,7 +135,14 @@ const ClientsContent = () => {
       key: "actions",
       render: (_, record) => (
         <Space>
-          <Button size="small" onClick={() => router.push(`/clients/${record.id}/overview`)}>
+          <Button
+            size="small"
+            loading={openingClientId === record.id}
+            onClick={() => {
+              setOpeningClientId(record.id);
+              router.push(`/clients/${record.id}/overview`);
+            }}
+          >
             Open Workspace
           </Button>
           {canCreate ? (
