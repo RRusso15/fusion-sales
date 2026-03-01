@@ -14,7 +14,7 @@ import {
 } from "antd";
 import type { TableProps } from "antd";
 import { useAuthActions, useAuthState } from "@/providers/authProvider";
-import { normalizeRole } from "@/constants/roles";
+import { resolveUserRole } from "@/constants/roles";
 import {
   DashboardProvider,
   useDashboardActions,
@@ -55,7 +55,7 @@ const AdminWorkspace = () => {
   const contractActions = useContractActions();
   const hasLoadedRef = useRef(false);
 
-  const activeRole = role ?? normalizeRole(user?.roles?.[0]) ?? "Unknown";
+  const activeRole = resolveUserRole(role, user?.roles) ?? "Unknown";
 
   const loadAdminData = useCallback(async () => {
     try {
@@ -151,6 +151,12 @@ const AdminWorkspace = () => {
           <Tag>{tenantId ?? currentUser?.tenantId ?? "No Tenant"}</Tag>
         </div>
         <div style={adminStyles.actions}>
+          <Link href="/admin/users">
+            <Button type="primary">Manage Users</Button>
+          </Link>
+          <Link href="/admin/settings">
+            <Button>Admin Settings</Button>
+          </Link>
           <Link href="/sales/contracts/expiring">
             <Button>Expiring Contracts Screen</Button>
           </Link>

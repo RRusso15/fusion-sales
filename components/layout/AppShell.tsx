@@ -21,7 +21,7 @@ import { Button, Layout, Typography } from "antd";
 import { appShellStyles } from "./appShell.styles";
 import { useAuthActions, useAuthState } from "@/providers/authProvider";
 import { hasPermission, Permission } from "@/constants/permissions";
-import { normalizeRole } from "@/constants/roles";
+import { resolveUserRole } from "@/constants/roles";
 
 const publicPaths = new Set(["/login", "/register", "/unauthorized"]);
 
@@ -75,7 +75,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
   const { role, user, isAuthenticated } = useAuthState();
   const { logout } = useAuthActions();
 
-  const activeRole = role ?? normalizeRole(user?.roles?.[0]);
+  const activeRole = resolveUserRole(role, user?.roles);
   const isPublicPath = publicPaths.has(pathname);
   const clientWorkspaceMatch = pathname.match(/^\/clients\/([^/]+)(?:\/.*)?$/);
   const activeClientId = clientWorkspaceMatch?.[1];

@@ -23,7 +23,7 @@ import {
   getAuthCookie,
 } from "@/utils/cookie";
 import { getAxiosInstance } from "@/utils/axiosInstance";
-import { normalizeRole } from "@/constants/roles";
+import { normalizeRole, resolveUserRole } from "@/constants/roles";
 import { UserRole } from "./context";
 
 interface AuthApiPayload {
@@ -67,15 +67,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const resolveRole = useCallback((roles?: string[], role?: string): IUser["role"] => {
-    const directRole = normalizeRole(role);
-    if (directRole) return directRole;
-
-    for (const roleItem of roles ?? []) {
-      const normalized = normalizeRole(roleItem);
-      if (normalized) return normalized;
-    }
-
-    return undefined;
+    return resolveUserRole(role, roles);
   }, []);
 
   const mapAuthData = useCallback((payload: AuthApiPayload, tokenFromState?: string) => {
@@ -94,7 +86,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             ]
           )
         : undefined;
-    const role = resolveRole(data?.roles, data?.role ?? tokenRole);
+    const tokenRoles = Array.isArray(tokenPayload?.roles)
+      ? tokenPayload.roles.filter((value): value is string => typeof value === "string")
+      : Array.isArray(
+          tokenPayload?.[
+            "http://schemas.microsoft.com/ws/2008/06/identity/claims/roles"
+          ]
+        )
+      ? (
+          tokenPayload[
+            "http://schemas.microsoft.com/ws/2008/06/identity/claims/roles"
+          ] as unknown[]
+        ).filter((value): value is string => typeof value === "string")
+      : [];
+    const role = resolveRole(
+      [...(data?.roles ?? []), ...tokenRoles],
+      data?.role ?? tokenRole
+    );
     const tenantId: string | undefined =
       data?.tenantId ??
       payload?.tenantId ??

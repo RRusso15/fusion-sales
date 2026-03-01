@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  Alert,
   Button,
   Card,
   Col,
@@ -35,13 +36,21 @@ interface CreateUserForm {
   role: "SalesRep" | "SalesManager" | "BusinessDevelopmentManager";
 }
 
+interface InviteFormValues {
+  email: string;
+  role: "SalesRep" | "SalesManager" | "BusinessDevelopmentManager";
+}
+
 const AdminUsersContent = () => {
   const { tenantId, currentUser } = useAuthState();
   const axios = getAxiosInstance();
   const [form] = Form.useForm<CreateUserForm>();
+  const [inviteForm] = Form.useForm<InviteFormValues>();
   const { users, isPending } = useUsersState();
   const { fetchUsers } = useUsersActions();
   const loadedRef = useRef(false);
+  const [inviteLink, setInviteLink] = useState("");
+  const activeTenantId = useMemo(() => tenantId ?? currentUser?.tenantId, [tenantId, currentUser?.tenantId]);
 
   const loadTenantUsers = useCallback(async () => {
     await fetchUsers({ pageNumber: 1, pageSize: 100, isActive: true });
@@ -54,7 +63,6 @@ const AdminUsersContent = () => {
   }, [loadTenantUsers]);
 
   const handleCreateUser = async (values: CreateUserForm) => {
-    const activeTenantId = tenantId ?? currentUser?.tenantId;
     if (!activeTenantId) {
       message.error("Tenant ID missing in current session.");
       return;
@@ -84,6 +92,39 @@ const AdminUsersContent = () => {
         return;
       }
       message.error("Failed to create user.");
+    }
+  };
+
+  const handleGenerateInviteLink = (values: InviteFormValues) => {
+    if (!activeTenantId) {
+      message.error("Tenant ID missing in current session.");
+      return;
+    }
+
+    const params = new URLSearchParams({
+      tenantId: activeTenantId,
+      role: values.role,
+      email: values.email.trim(),
+    });
+    const path = `/register?${params.toString()}`;
+    const generatedLink =
+      typeof window === "undefined" ? path : `${window.location.origin}${path}`;
+
+    setInviteLink(generatedLink);
+    message.success("Invite link generated.");
+  };
+
+  const handleCopyInviteLink = async () => {
+    if (!inviteLink) {
+      message.warning("Generate an invite link first.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      message.success("Invite link copied to clipboard.");
+    } catch {
+      message.error("Failed to copy invite link.");
     }
   };
 
@@ -133,6 +174,64 @@ const AdminUsersContent = () => {
           columns={userColumns}
           pagination={{ pageSize: 8 }}
         />
+      </Card>
+
+      <Card title="Invite User">
+        {!activeTenantId ? (
+          <Alert
+            type="error"
+            showIcon
+            message="Tenant ID missing in current session. Invite links cannot be generated."
+          />
+        ) : null}
+        <Form<InviteFormValues>
+          form={inviteForm}
+          layout="vertical"
+          onFinish={handleGenerateInviteLink}
+          initialValues={{ role: Roles.SalesRep }}
+        >
+          <Row gutter={[16, 0]}>
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="email"
+                label="Email"
+                rules={[
+                  { required: true, message: "Please enter email." },
+                  { type: "email", message: "Please enter a valid email." },
+                ]}
+              >
+                <Input placeholder="user@company.com" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item name="role" label="Role" rules={[{ required: true }]}>
+                <Select
+                  options={[
+                    { label: "SalesRep", value: Roles.SalesRep },
+                    { label: "SalesManager", value: Roles.SalesManager },
+                    {
+                      label: "BusinessDevelopmentManager",
+                      value: Roles.BusinessDevelopmentManager,
+                    },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24}>
+              <Space>
+                <Button type="primary" htmlType="submit">
+                  Generate Invite Link
+                </Button>
+                <Button onClick={handleCopyInviteLink}>Copy to Clipboard</Button>
+              </Space>
+            </Col>
+            <Col xs={24}>
+              <Form.Item label="Generated Link">
+                <Input readOnly value={inviteLink} placeholder="Generate an invite link to display it here." />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form>
       </Card>
 
       <Card title="Create User">

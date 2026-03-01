@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Spin } from "antd";
 import { useAuthState } from "@/providers/authProvider";
-import { normalizeRole } from "@/constants/roles";
+import { resolveUserRole } from "@/constants/roles";
 
 export default function HomePage() {
   const { isAuthenticated, user, role, isPending } = useAuthState();
@@ -18,7 +18,7 @@ export default function HomePage() {
       return;
     }
 
-    const activeRole = role ?? normalizeRole(user?.roles?.[0]);
+    const activeRole = resolveUserRole(role, user?.roles);
     if (!activeRole) {
       router.replace("/unauthorized");
       return;

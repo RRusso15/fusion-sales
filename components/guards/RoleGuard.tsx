@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/providers/authProvider";
 import { UserRole } from "@/providers/authProvider/context";
-import { normalizeRole } from "@/constants/roles";
+import { resolveUserRole } from "@/constants/roles";
 
 interface RoleGuardProps {
   children: React.ReactNode;
@@ -20,10 +20,7 @@ export const RoleGuard = ({
   const { isAuthenticated, isPending, role, user } = useAuthState();
   const router = useRouter();
 
-  const activeRole =
-    role ??
-    normalizeRole(user?.roles?.[0]) ??
-    (user?.roles?.[0] as UserRole | undefined);
+  const activeRole = resolveUserRole(role, user?.roles) ?? (user?.roles?.[0] as UserRole | undefined);
   const isAuthorized = !!activeRole && allowedRoles.includes(activeRole);
 
   useEffect(() => {
