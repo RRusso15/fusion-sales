@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
+  App,
   Alert,
   Button,
   Collapse,
@@ -13,22 +15,20 @@ import {
   Space,
   Table,
   Upload,
-  message,
 } from "antd";
 import { UploadOutlined } from "@ant-design/icons";
 import type { TableProps } from "antd";
 import type { UploadFile } from "antd/es/upload/interface";
 import { AuthGuard } from "@/components/guards/AuthGuard";
 import { getAxiosInstance } from "@/utils/axiosInstance";
-import { useAuthState } from "@/providers/authProvider";
-import { normalizeRole } from "@/constants/roles";
-import { hasPermission, Permission } from "@/constants/permissions";
+import { usePermission } from "@/components/hooks/usePermission";
 import { capabilityStyles } from "../capability.styles";
 import { getErrorMessage } from "@/utils/requestError";
 import {
   DocumentCategoryLabels,
   OpportunitySource,
   OpportunityStage,
+  RelatedToType,
   RelatedToTypeLabels,
   DocumentCategoryValue,
   RelatedToTypeValue,
@@ -91,6 +91,10 @@ interface LeadExecutionForm {
 interface RelatedClientOption {
   id: string;
   name?: string | null;
+}
+
+interface DocumentsModuleProps {
+  clientId?: string;
 }
 
 const sourceToEnum: Record<NonNullable<LeadExecutionForm["source"]>, number> = {
@@ -164,9 +168,9 @@ const fetchJsonWithTimeout = async <T,>(
   }
 };
 
-const DocumentsContent = () => {
+const DocumentsContent = ({ clientId }: DocumentsModuleProps) => {
+  const { message: appMessage } = App.useApp();
   const axios = getAxiosInstance();
-  const { role, user } = useAuthState();
   const [rows, setRows] = useState<DocumentRow[]>([]);
   const [isPending, setIsPending] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -185,24 +189,30 @@ const DocumentsContent = () => {
   const [analyzingDocumentId, setAnalyzingDocumentId] = useState<string | null>(null);
   const [applyingDocumentId, setApplyingDocumentId] = useState<string | null>(null);
 
-  const activeRole = role ?? normalizeRole(user?.roles?.[0]);
-  const canDelete = hasPermission(activeRole, Permission.deleteDocument);
-  const canCreateOpportunity = hasPermission(activeRole, Permission.createOpportunity);
+  const { hasPermission, Permission } = usePermission();
+  const canDelete = hasPermission(Permission.deleteDocument);
+  const canCreateOpportunity = hasPermission(Permission.createOpportunity);
 
   const load = useCallback(async () => {
     setIsPending(true);
     try {
       const response = await axios.get("/api/Documents", {
-        params: { pageNumber: 1, pageSize: 20 },
+        params: {
+          pageNumber: 1,
+          pageSize: 20,
+          ...(clientId
+            ? { relatedToType: RelatedToType.Client, relatedToId: clientId }
+            : {}),
+        },
       });
       const data = response.data;
       setRows(data.items ?? data);
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to load documents"));
+      appMessage.error(getErrorMessage(error, "Unable to load documents"));
     } finally {
       setIsPending(false);
     }
-  }, [axios]);
+  }, [axios, clientId]);
 
   const loadRelatedClients = useCallback(async () => {
     setRelatedClientsLoading(true);
@@ -277,25 +287,26 @@ const DocumentsContent = () => {
   }, [load]);
 
   useEffect(() => {
+    if (clientId) return;
     if (relatedToTypeValue !== 1) return;
     if (relatedClients.length > 0 || relatedClientsLoading) return;
     loadRelatedClients().catch(() => undefined);
-  }, [relatedClients.length, relatedClientsLoading, relatedToTypeValue, loadRelatedClients]);
+  }, [clientId, relatedClients.length, relatedClientsLoading, relatedToTypeValue, loadRelatedClients]);
 
   const onDelete = async (id: string) => {
     try {
       await axios.delete(`/api/Documents/${id}`);
       await load();
-      message.success("Document deleted");
+      appMessage.success("Document deleted");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to delete document"));
+      appMessage.error(getErrorMessage(error, "Unable to delete document"));
     }
   };
 
   const openRecommendation = (record: DocumentRow) => {
     const recommendation = recommendationByDocumentId[record.id];
     if (!recommendation) {
-      message.info("Analyze the document first.");
+      appMessage.info("Analyze the document first.");
       return;
     }
 
@@ -323,7 +334,7 @@ const DocumentsContent = () => {
       const text = await extractDocumentText(blob, fileName, contentType);
 
       if (!text) {
-        message.warning(
+        appMessage.warning(
           "Could not extract readable text from this file. Recommendation will use metadata only."
         );
       }
@@ -355,7 +366,7 @@ const DocumentsContent = () => {
         ...prev,
         [record.id]: recommendation,
       }));
-      message.success("AI recommendation ready");
+      appMessage.success("AI recommendation ready");
       setSelectedRecommendationDoc(record);
       setIsRecommendationOpen(true);
       executionForm.setFieldsValue({
@@ -374,7 +385,7 @@ const DocumentsContent = () => {
     } catch (error) {
       const explicitMessage =
         error instanceof Error && error.message ? error.message : undefined;
-      message.error(explicitMessage ?? getErrorMessage(error, "Unable to analyze document"));
+      appMessage.error(explicitMessage ?? getErrorMessage(error, "Unable to analyze document"));
     } finally {
       setAnalyzingDocumentId(null);
     }
@@ -491,17 +502,17 @@ const DocumentsContent = () => {
     const recommendation = recommendationByDocumentId[selectedRecommendationDoc.id];
 
     if (!recommendation) {
-      message.error("No recommendation loaded for this document.");
+      appMessage.error("No recommendation loaded for this document.");
       return;
     }
 
     if (recommendation.recommendedAction !== "create_lead_opportunity") {
-      message.info("This recommendation does not propose a lead creation action.");
+      appMessage.info("This recommendation does not propose a lead creation action.");
       return;
     }
 
     if (!canCreateOpportunity) {
-      message.error("You do not have permission to create opportunities.");
+      appMessage.error("You do not have permission to create opportunities.");
       return;
     }
 
@@ -524,10 +535,10 @@ const DocumentsContent = () => {
 
       setIsRecommendationOpen(false);
       await load();
-      message.success("Lead opportunity created from AI recommendation");
+      appMessage.success("Lead opportunity created from AI recommendation");
     } catch (error) {
       if ((error as { errorFields?: unknown })?.errorFields) return;
-      message.error(getErrorMessage(error, "Unable to apply AI recommendation"));
+      appMessage.error(getErrorMessage(error, "Unable to apply AI recommendation"));
     } finally {
       setApplyingDocumentId(null);
     }
@@ -592,22 +603,23 @@ const DocumentsContent = () => {
                 anchor.click();
                 anchor.remove();
                 window.URL.revokeObjectURL(url);
-                message.success("Download started");
+                appMessage.success("Download started");
               } catch (error) {
-                message.error(getErrorMessage(error, "Unable to download document"));
+                appMessage.error(getErrorMessage(error, "Unable to download document"));
               }
             }}
           >
             Download
           </Button>
-          <Button
-            size="small"
-            danger
-            disabled={!canDelete}
-            onClick={() => onDelete(record.id)}
-          >
-            Delete
-          </Button>
+          {canDelete ? (
+            <Button
+              size="small"
+              danger
+              onClick={() => onDelete(record.id)}
+            >
+              Delete
+            </Button>
+          ) : null}
         </Space>
       ),
     },
@@ -616,11 +628,11 @@ const DocumentsContent = () => {
   const onUpload = async (values: UploadDocumentForm) => {
     try {
       if (!fileList[0]?.originFileObj) {
-        message.error("Select a file to upload.");
+        appMessage.error("Select a file to upload.");
         return;
       }
       if (values.relatedToType !== undefined && !values.relatedToId) {
-        message.error("Select a related record.");
+        appMessage.error("Select a related record.");
         return;
       }
       setUploading(true);
@@ -629,7 +641,19 @@ const DocumentsContent = () => {
       if (values.documentCategory !== undefined) {
         formData.append("documentCategory", String(values.documentCategory));
       }
-      if (values.relatedToType !== undefined) {
+      const effectiveRelatedToType =
+        clientId ? RelatedToType.Client : values.relatedToType;
+      const effectiveRelatedToId = clientId ? clientId : values.relatedToId;
+
+      if (effectiveRelatedToType !== undefined && !effectiveRelatedToId) {
+        appMessage.error("Select a related record.");
+        return;
+      }
+
+      if (effectiveRelatedToType !== undefined) {
+        formData.append("relatedToType", String(effectiveRelatedToType));
+        formData.append("relatedToId", effectiveRelatedToId as string);
+      } else if (values.relatedToType !== undefined) {
         formData.append("relatedToType", String(values.relatedToType));
         formData.append("relatedToId", values.relatedToId as string);
       }
@@ -640,12 +664,12 @@ const DocumentsContent = () => {
       await axios.post("/api/Documents/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      message.success("Document uploaded");
+      appMessage.success("Document uploaded");
       setFileList([]);
       form.resetFields();
       await load();
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to upload document"));
+      appMessage.error(getErrorMessage(error, "Unable to upload document"));
     } finally {
       setUploading(false);
     }
@@ -679,54 +703,58 @@ const DocumentsContent = () => {
                     }))}
                   />
                 </Form.Item>
-                <Form.Item name="relatedToType" label="Related Type">
-                  <Select
-                    allowClear
-                    onChange={() => {
-                      form.setFieldValue("relatedToId", undefined);
-                    }}
-                    options={Object.entries(RelatedToTypeLabels).map(([value, label]) => ({
-                      value: Number(value),
-                      label,
-                    }))}
-                  />
-                </Form.Item>
-                <Form.Item
-                  name="relatedToId"
-                  label="Related ID"
-                  rules={[
-                    {
-                      validator: async (_, value) => {
-                        const selectedType = form.getFieldValue("relatedToType");
-                        if (selectedType !== undefined && !value) {
-                          throw new Error("Select a related record");
-                        }
-                      },
-                    },
-                  ]}
-                >
-                  {relatedToTypeValue === 1 ? (
-                    <Select
-                      showSearch
-                      allowClear
-                      loading={relatedClientsLoading}
-                      optionFilterProp="label"
-                      placeholder="Select client"
-                      options={relatedClients.map((client) => ({
-                        value: client.id,
-                        label: `${client.name || "Unnamed Client"} (${client.id.slice(0, 8)})`,
-                      }))}
-                    />
-                  ) : (
-                    <Input
-                      placeholder={
-                        relatedToTypeValue !== undefined
-                          ? "Enter related record ID"
-                          : "Select Related Type first"
-                      }
-                    />
-                  )}
-                </Form.Item>
+                {!clientId ? (
+                  <>
+                    <Form.Item name="relatedToType" label="Related Type">
+                      <Select
+                        allowClear
+                        onChange={() => {
+                          form.setFieldValue("relatedToId", undefined);
+                        }}
+                        options={Object.entries(RelatedToTypeLabels).map(([value, label]) => ({
+                          value: Number(value),
+                          label,
+                        }))}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name="relatedToId"
+                      label="Related ID"
+                      rules={[
+                        {
+                          validator: async (_, value) => {
+                            const selectedType = form.getFieldValue("relatedToType");
+                            if (selectedType !== undefined && !value) {
+                              throw new Error("Select a related record");
+                            }
+                          },
+                        },
+                      ]}
+                    >
+                      {relatedToTypeValue === 1 ? (
+                        <Select
+                          showSearch
+                          allowClear
+                          loading={relatedClientsLoading}
+                          optionFilterProp="label"
+                          placeholder="Select client"
+                          options={relatedClients.map((client) => ({
+                            value: client.id,
+                            label: `${client.name || "Unnamed Client"} (${client.id.slice(0, 8)})`,
+                          }))}
+                        />
+                      ) : (
+                        <Input
+                          placeholder={
+                            relatedToTypeValue !== undefined
+                              ? "Enter related record ID"
+                              : "Select Related Type first"
+                          }
+                        />
+                      )}
+                    </Form.Item>
+                  </>
+                ) : null}
                 <Form.Item name="description" label="Description">
                   <Input.TextArea rows={3} />
                 </Form.Item>
@@ -772,7 +800,7 @@ const DocumentsContent = () => {
                   : "info"
               }
               showIcon
-              message={`Recommended action: ${
+              title={`Recommended action: ${
                 recommendationByDocumentId[selectedRecommendationDoc.id]?.recommendedAction ===
                 "create_lead_opportunity"
                   ? "Create Lead Opportunity"
@@ -844,11 +872,20 @@ const DocumentsContent = () => {
   );
 };
 
-export default function DocumentsPage() {
+export function DocumentsModule({ clientId }: DocumentsModuleProps) {
   return (
     <AuthGuard>
-      <DocumentsContent />
+      <DocumentsContent clientId={clientId} />
     </AuthGuard>
   );
 }
+
+export default function DocumentsPage() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/clients");
+  }, [router]);
+  return null;
+}
+
 

@@ -64,6 +64,7 @@ export interface IOpportunityActionContext {
   }) => Promise<void>;
 
   fetchMyOpportunities: (params?: {
+    clientId?: string;
     stage?: OpportunityStageValue;
     pageNumber?: number;
     pageSize?: number;

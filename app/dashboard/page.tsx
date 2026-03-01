@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CalendarOutlined,
   CheckCircleOutlined,
@@ -10,10 +10,10 @@ import {
   LogoutOutlined,
   RiseOutlined,
 } from "@ant-design/icons";
-import { Avatar, Button, Card, Col, Row, Space, Typography } from "antd";
+import { App, Avatar, Button, Card, Col, Row, Space, Typography } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
 import { useAuthActions, useAuthState } from "@/providers/authProvider";
-import { normalizeRole, Roles } from "@/constants/roles";
+import { resolveUserRole, Roles } from "@/constants/roles";
 import {
   DashboardProvider,
   useDashboardActions,
@@ -21,6 +21,10 @@ import {
 } from "@/providers/dashboardProvider";
 import { OpportunityStageLabels } from "@/constants/enums";
 import { capabilityStyles } from "../capability.styles";
+import { workflowService } from "@/utils/workflowService";
+import type { IContract } from "@/providers/contractProvider/context";
+import { PageTransition } from "@/components/ui/PageTransition";
+import { ContentSkeleton } from "@/components/ui/ContentSkeleton";
 
 type ChartDatum = {
   label: string;
@@ -85,7 +89,7 @@ const BarChartCard = ({
       {data.length === 0 ? (
         <Typography.Text type="secondary">No data available.</Typography.Text>
       ) : (
-        <Space direction="vertical" style={{ width: "100%" }} size={10}>
+        <Space orientation="vertical" style={{ width: "100%" }} size={10}>
           {data.slice(0, 8).map((item) => (
             <div key={item.label}>
               <div
@@ -176,9 +180,11 @@ const LineChartCard = ({
 };
 
 const DashboardContent = () => {
+  const { message: appMessage } = App.useApp();
   const { role, user } = useAuthState();
   const { logout } = useAuthActions();
   const {
+    isPending,
     overview,
     salesPerformance,
     pipelineMetrics,
@@ -193,7 +199,11 @@ const DashboardContent = () => {
     fetchSalesPerformance,
   } = useDashboardActions();
   const loadedRef = useRef(false);
-  const activeRole = role ?? normalizeRole(user?.roles?.[0]);
+  const activeRole = resolveUserRole(role, user?.roles);
+  const [expiringContractsForRenewal, setExpiringContractsForRenewal] = useState<
+    IContract[]
+  >([]);
+  const [renewingContractIds, setRenewingContractIds] = useState<string[]>([]);
   const salesPerformanceList = Array.isArray(salesPerformance)
     ? salesPerformance
     : [];
@@ -209,6 +219,16 @@ const DashboardContent = () => {
       jobs.push(fetchSalesPerformance(5));
     }
     await Promise.all(jobs);
+
+    try {
+      const expiringContracts = await workflowService.handleContractExpiring({
+        daysUntilExpiry: 90,
+      });
+      setExpiringContractsForRenewal(expiringContracts);
+    } catch (workflowError) {
+      console.error("Contract expiring workflow load failed", workflowError);
+      appMessage.warning("Primary action succeeded. Follow-up automation failed.");
+    }
   }, [
     activeRole,
     fetchActivitiesSummary,
@@ -216,6 +236,7 @@ const DashboardContent = () => {
     fetchOverview,
     fetchPipelineMetrics,
     fetchSalesPerformance,
+    setExpiringContractsForRenewal,
   ]);
 
   useEffect(() => {
@@ -263,11 +284,34 @@ const DashboardContent = () => {
     value: asNumber(item.totalRevenue),
   }));
 
+  const handleCreateRenewalOpportunity = async (contractId: string) => {
+    setRenewingContractIds((previous) => [...previous, contractId]);
+    try {
+      await workflowService.createRenewalOpportunity(contractId);
+      appMessage.success("Renewal opportunity created.");
+      const refreshed = await workflowService.handleContractExpiring({
+        daysUntilExpiry: 90,
+      });
+      setExpiringContractsForRenewal(refreshed);
+    } catch (error) {
+      console.error("Renewal workflow failed", error);
+      appMessage.warning("Primary action succeeded. Follow-up automation failed.");
+    } finally {
+      setRenewingContractIds((previous) =>
+        previous.filter((id) => id !== contractId)
+      );
+    }
+  };
+
   return (
-    <div style={capabilityStyles.container}>
+    <PageTransition>
+      {isPending ? (
+        <ContentSkeleton variant="cards" />
+      ) : (
+    <div style={capabilityStyles.container} className="fade-in">
       <Card style={capabilityStyles.header}>
         <div style={capabilityStyles.actions}>
-          <Button danger icon={<LogoutOutlined />} onClick={logout}>
+          <Button danger icon={<LogoutOutlined />} onClick={logout} className="press">
             Logout
           </Button>
         </div>
@@ -275,7 +319,7 @@ const DashboardContent = () => {
 
       <Row gutter={[16, 16]} style={capabilityStyles.cardsRow}>
         <Col xs={24} md={6}>
-          <Card>
+          <Card className="hover-lift scale-in">
             <Space align="start">
               <Avatar
                 icon={<FundOutlined />}
@@ -291,7 +335,7 @@ const DashboardContent = () => {
           </Card>
         </Col>
         <Col xs={24} md={6}>
-          <Card>
+          <Card className="hover-lift scale-in">
             <Space align="start">
               <Avatar
                 icon={<RiseOutlined />}
@@ -307,7 +351,7 @@ const DashboardContent = () => {
           </Card>
         </Col>
         <Col xs={24} md={6}>
-          <Card>
+          <Card className="hover-lift scale-in">
             <Space align="start">
               <Avatar
                 icon={<CalendarOutlined />}
@@ -323,7 +367,7 @@ const DashboardContent = () => {
           </Card>
         </Col>
         <Col xs={24} md={6}>
-          <Card>
+          <Card className="hover-lift scale-in">
             <Space align="start">
               <Avatar
                 icon={<FileProtectOutlined />}
@@ -342,7 +386,7 @@ const DashboardContent = () => {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} md={8}>
-          <Card>
+          <Card className="hover-lift scale-in">
             <Space align="start">
               <Avatar
                 icon={<CheckCircleOutlined />}
@@ -358,7 +402,7 @@ const DashboardContent = () => {
           </Card>
         </Col>
         <Col xs={24} md={8}>
-          <Card>
+          <Card className="hover-lift scale-in">
             <Space align="start">
               <Avatar
                 icon={<DollarCircleOutlined />}
@@ -374,7 +418,7 @@ const DashboardContent = () => {
           </Card>
         </Col>
         <Col xs={24} md={8}>
-          <Card>
+          <Card className="hover-lift scale-in">
             <Space align="start">
               <Avatar
                 icon={<CalendarOutlined />}
@@ -454,7 +498,45 @@ const DashboardContent = () => {
           ))}
         </Card>
       ) : null}
+
+      <Card title="Contract Renewals (Expiring in 90 Days)">
+        {expiringContractsForRenewal.length === 0 ? (
+          <Typography.Text type="secondary">
+            No contracts currently require renewal workflow.
+          </Typography.Text>
+        ) : (
+          <Space orientation="vertical" style={{ width: "100%" }} size={10}>
+            {expiringContractsForRenewal.map((contract) => (
+              <div
+                key={contract.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 12,
+                }}
+              >
+                <Typography.Text>
+                  {contract.title ?? contract.id}{" "}
+                  <span className={contract.daysUntilExpiry && contract.daysUntilExpiry <= 30 ? "expiring-pulse" : ""}>
+                    ({contract.daysUntilExpiry ?? "-"} days left)
+                  </span>
+                </Typography.Text>
+                <Button
+                  className="press"
+                  onClick={() => handleCreateRenewalOpportunity(contract.id)}
+                  loading={renewingContractIds.includes(contract.id)}
+                >
+                  Create Renewal Opportunity
+                </Button>
+              </div>
+            ))}
+          </Space>
+        )}
+      </Card>
     </div>
+      )}
+    </PageTransition>
   );
 };
 

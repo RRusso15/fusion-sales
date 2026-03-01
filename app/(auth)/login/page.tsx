@@ -1,6 +1,6 @@
 "use client";
 
-import { Form, Input, Button, Typography, message } from "antd";
+import { App, Form, Input, Button, Typography } from "antd";
 import { useAuthActions, useAuthState } from "@/providers/authProvider";
 import { useRouter } from "next/navigation";
 import { authStyles } from "../auth.styles";
@@ -11,8 +11,8 @@ interface LoginFormValues {
   email: string;
   password: string;
 }
-
 export default function LoginPage() {
+  const { message: appMessage } = App.useApp();
   const { login } = useAuthActions();
   const { isPending } = useAuthState();
   const router = useRouter();
@@ -20,10 +20,10 @@ export default function LoginPage() {
   const onFinish = async (values: LoginFormValues) => {
     try {
       await login(values.email, values.password);
-      message.success("Login successful");
+      appMessage.success("Login successful");
       router.push("/");
     } catch {
-      message.error("Login failed");
+      appMessage.error("Login failed");
     }
   };
 
@@ -100,3 +100,10 @@ export default function LoginPage() {
     </>
   );
 }
+
+
+
+
+
+
+

@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams } from "next/navigation";
 import {
+  App,
   Button,
   Collapse,
   DatePicker,
@@ -11,13 +13,10 @@ import {
   Select,
   Space,
   Table,
-  message,
 } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
-import { useAuthState } from "@/providers/authProvider";
-import { normalizeRole, Roles } from "@/constants/roles";
-import { hasPermission, Permission } from "@/constants/permissions";
+import { usePermission } from "@/components/hooks/usePermission";
 import {
   ActivityProvider,
   useActivityActions,
@@ -65,19 +64,24 @@ import {
   useUsersState,
 } from "@/providers/usersProvider";
 import dayjs, { Dayjs } from "dayjs";
+import { workflowService } from "@/utils/workflowService";
+import { PageTransition } from "@/components/ui/PageTransition";
+import { ContentSkeleton } from "@/components/ui/ContentSkeleton";
 
 const ActivitiesContent = () => {
-  const { role, user } = useAuthState();
+  const { message: appMessage } = App.useApp();
+  const params = useParams<{ clientId?: string }>();
+  const clientId = typeof params?.clientId === "string" ? params.clientId : undefined;
   const { activities, isPending } = useActivityState();
   const { clients } = useClientState();
   const { opportunities } = useOpportunityState();
   const { proposals } = useProposalState();
   const { contracts } = useContractState();
   const { users: tenantUsers } = useUsersState();
-  const { fetchActivities, fetchMyActivities, createActivity, updateActivity, cancelActivity, completeActivity, deleteActivity } =
+  const { fetchActivities, createActivity, updateActivity, cancelActivity, completeActivity, deleteActivity } =
     useActivityActions();
   const { fetchClients } = useClientActions();
-  const { fetchOpportunities, fetchMyOpportunities } = useOpportunityActions();
+  const { fetchOpportunities } = useOpportunityActions();
   const { fetchProposals } = useProposalActions();
   const { fetchContracts } = useContractActions();
   const { fetchUsers } = useUsersActions();
@@ -88,42 +92,41 @@ const ActivitiesContent = () => {
   const [createForm] = Form.useForm();
   const createRelatedType = Form.useWatch("createRelatedType", createForm);
 
-  const activeRole = role ?? normalizeRole(user?.roles?.[0]);
-  const canViewAll =
-    activeRole === Roles.Admin ||
-    activeRole === Roles.SalesManager ||
-    activeRole === Roles.BusinessDevelopmentManager;
-  const canDelete = hasPermission(activeRole, Permission.deleteActivity);
-  const canComplete = hasPermission(activeRole, Permission.completeActivity);
-  const canCreate = hasPermission(activeRole, Permission.createActivity);
+  const { hasPermission, Permission } = usePermission();
+  const canDelete = hasPermission(Permission.deleteActivity);
+  const canComplete = hasPermission(Permission.completeActivity);
+  const canCreate = hasPermission(Permission.createActivity);
 
   const load = useCallback(async () => {
-    if (canViewAll) {
-      await Promise.all([
-        fetchActivities({ pageNumber: 1, pageSize: 20 }),
-        fetchClients({ pageNumber: 1, pageSize: 100 }),
-        fetchOpportunities({ pageNumber: 1, pageSize: 100 }),
-        fetchProposals({ pageNumber: 1, pageSize: 100 }),
-        fetchContracts({ pageNumber: 1, pageSize: 100 }),
-        fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
-      ]);
-      return;
-    }
+    const activityParams = {
+      pageNumber: 1,
+      pageSize: 20,
+      ...(clientId
+        ? { relatedToType: RelatedToType.Client, relatedToId: clientId }
+        : {}),
+    };
+    const opportunityParams = {
+      pageNumber: 1,
+      pageSize: 100,
+      ...(clientId ? { clientId } : {}),
+    };
+    const clientLoad = clientId
+      ? Promise.resolve()
+      : fetchClients({ pageNumber: 1, pageSize: 100 });
+
     await Promise.all([
-      fetchMyActivities({ pageNumber: 1, pageSize: 20 }),
-      fetchClients({ pageNumber: 1, pageSize: 100 }),
-      fetchMyOpportunities({ pageNumber: 1, pageSize: 100 }),
+      fetchActivities(activityParams),
+      clientLoad,
+      fetchOpportunities(opportunityParams),
       fetchProposals({ pageNumber: 1, pageSize: 100 }),
       fetchContracts({ pageNumber: 1, pageSize: 100 }),
       fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
     ]);
   }, [
-    canViewAll,
+    clientId,
     fetchActivities,
-    fetchMyActivities,
     fetchClients,
     fetchOpportunities,
-    fetchMyOpportunities,
     fetchProposals,
     fetchContracts,
     fetchUsers,
@@ -138,10 +141,16 @@ const ActivitiesContent = () => {
   const onComplete = async (id: string) => {
     try {
       await completeActivity(id, "Completed from activities module");
+      try {
+        await workflowService.handleActivityCompleted({ activityId: id });
+      } catch (workflowError) {
+        console.error("Activity complete workflow failed", workflowError);
+        appMessage.warning("Primary action succeeded. Follow-up automation failed.");
+      }
       await load();
-      message.success("Activity completed");
+      appMessage.success("Activity completed");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to complete activity"));
+      appMessage.error(getErrorMessage(error, "Unable to complete activity"));
     }
   };
 
@@ -149,9 +158,9 @@ const ActivitiesContent = () => {
     try {
       await deleteActivity(id);
       await load();
-      message.success("Activity deleted");
+      appMessage.success("Activity deleted");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to delete activity"));
+      appMessage.error(getErrorMessage(error, "Unable to delete activity"));
     }
   };
 
@@ -174,13 +183,16 @@ const ActivitiesContent = () => {
         priority: values.createPriority as PriorityValue | undefined,
         dueDate: values.createDueDate?.format("YYYY-MM-DD"),
         assignedToId: values.createAssignedToId,
-        relatedToType: values.createRelatedType as RelatedToTypeValue | undefined,
-        relatedToId: values.createRelatedId,
+        relatedToType: clientId
+          ? RelatedToType.Client
+          : (values.createRelatedType as RelatedToTypeValue | undefined),
+        relatedToId: clientId ?? values.createRelatedId,
       });
+      createForm.resetFields();
       await load();
-      message.success("Activity created");
+      appMessage.success("Activity created");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to save activity"));
+      appMessage.error(getErrorMessage(error, "Unable to save activity"));
     }
   };
 
@@ -189,9 +201,9 @@ const ActivitiesContent = () => {
       if (!values.cancelId || !canCreate) return;
       await cancelActivity(values.cancelId);
       await load();
-      message.success("Activity cancelled");
+      appMessage.success("Activity cancelled");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to cancel activity"));
+      appMessage.error(getErrorMessage(error, "Unable to cancel activity"));
     }
   };
 
@@ -218,10 +230,10 @@ const ActivitiesContent = () => {
       setIsEditOpen(false);
       setEditingActivityId(null);
       await load();
-      message.success("Activity updated");
+      appMessage.success("Activity updated");
     } catch (error) {
       if ((error as { errorFields?: unknown })?.errorFields) return;
-      message.error(getErrorMessage(error, "Unable to update activity"));
+      appMessage.error(getErrorMessage(error, "Unable to update activity"));
     }
   };
 
@@ -246,32 +258,33 @@ const ActivitiesContent = () => {
       key: "actions",
       render: (_, record) => (
         <Space>
-          <Button
-            size="small"
-            disabled={!canCreate}
-            onClick={() => openEdit(record)}
-          >
-            Edit
-          </Button>
-          <Button
-            size="small"
-            disabled={
-              !canComplete ||
-              record.status === ActivityStatus.Completed ||
-              record.status === ActivityStatus.Cancelled
-            }
-            onClick={() => onComplete(record.id)}
-          >
-            Complete
-          </Button>
-          <Button
-            size="small"
-            danger
-            disabled={!canDelete}
-            onClick={() => onDelete(record.id)}
-          >
-            Delete
-          </Button>
+          {canCreate ? (
+            <Button
+              size="small"
+              onClick={() => openEdit(record)}
+            >
+              Edit
+            </Button>
+          ) : null}
+          {canComplete &&
+          record.status !== ActivityStatus.Completed &&
+          record.status !== ActivityStatus.Cancelled ? (
+            <Button
+              size="small"
+              onClick={() => onComplete(record.id)}
+            >
+              Complete
+            </Button>
+          ) : null}
+          {canDelete ? (
+            <Button
+              size="small"
+              danger
+              onClick={() => onDelete(record.id)}
+            >
+              Delete
+            </Button>
+          ) : null}
         </Space>
       ),
     },
@@ -282,15 +295,6 @@ const ActivitiesContent = () => {
       value: entry.id,
       label: `${entry.fullName || `${entry.firstName} ${entry.lastName}`.trim() || entry.email} (${entry.id.slice(0, 8)})`,
     })),
-    ...(user?.id && tenantUsers.every((entry) => entry.id !== user.id)
-      ? [{
-          value: user.id,
-          label:
-            `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
-            user.email ||
-            "Current User",
-        }]
-      : []),
   ].filter(
     (candidate, index, self) =>
       self.findIndex((item) => item.value === candidate.value) === index
@@ -331,7 +335,11 @@ const ActivitiesContent = () => {
   })();
 
   return (
-    <div style={capabilityStyles.container}>
+    <PageTransition>
+      {isPending && activities.length === 0 ? (
+        <ContentSkeleton variant="table" />
+      ) : (
+    <div style={capabilityStyles.container} className="fade-in">
       <Collapse
         items={[
           {
@@ -390,28 +398,34 @@ const ActivitiesContent = () => {
                     optionFilterProp="label"
                   />
                 </Form.Item>
-                <Form.Item name="createRelatedType" label="Related Type">
-                  <Select
-                    disabled={!canCreate}
-                    options={Object.entries(RelatedToTypeLabels).map(
-                      ([value, label]) => ({
-                        value: Number(value),
-                        label,
-                      })
-                    )}
-                  />
-                </Form.Item>
-                <Form.Item name="createRelatedId" label="Related ID">
-                  <Select
-                    disabled={!canCreate || !createRelatedType}
-                    options={relatedOptions}
-                    showSearch
-                    optionFilterProp="label"
-                  />
-                </Form.Item>
-                <Button type="primary" htmlType="submit" disabled={!canCreate}>
-                  Create Activity
-                </Button>
+                {!clientId ? (
+                  <>
+                    <Form.Item name="createRelatedType" label="Related Type">
+                      <Select
+                        disabled={!canCreate}
+                        options={Object.entries(RelatedToTypeLabels).map(
+                          ([value, label]) => ({
+                            value: Number(value),
+                            label,
+                          })
+                        )}
+                      />
+                    </Form.Item>
+                    <Form.Item name="createRelatedId" label="Related ID">
+                      <Select
+                        disabled={!canCreate || !createRelatedType}
+                        options={relatedOptions}
+                        showSearch
+                        optionFilterProp="label"
+                      />
+                    </Form.Item>
+                  </>
+                ) : null}
+                {canCreate ? (
+                  <Button type="primary" htmlType="submit" loading={isPending} className="press">
+                    Create Activity
+                  </Button>
+                ) : null}
               </Form>
             ),
           },
@@ -431,15 +445,18 @@ const ActivitiesContent = () => {
                     optionFilterProp="label"
                   />
                 </Form.Item>
-                <Button type="primary" htmlType="submit" disabled={!canCreate}>
-                  Cancel Activity
-                </Button>
+                {canCreate ? (
+                  <Button type="primary" htmlType="submit" loading={isPending} className="press">
+                    Cancel Activity
+                  </Button>
+                ) : null}
               </Form>
             ),
           },
         ]}
       />
       <Table<IActivity>
+        className={`table-fade table-row-hover ${isPending ? "loading" : ""}`}
         rowKey="id"
         loading={isPending}
         dataSource={activities}
@@ -454,7 +471,7 @@ const ActivitiesContent = () => {
           setEditingActivityId(null);
         }}
         onOk={onEditSave}
-        okButtonProps={{ disabled: !canCreate }}
+        okButtonProps={{ style: { display: canCreate ? "inline-flex" : "none" } }}
       >
         <Form form={editForm} layout="vertical">
           <Form.Item name="subject" label="Subject">
@@ -469,10 +486,12 @@ const ActivitiesContent = () => {
         </Form>
       </Modal>
     </div>
+      )}
+    </PageTransition>
   );
 };
 
-export default function ActivitiesPage() {
+export function ActivitiesModule() {
   return (
     <AuthGuard>
       <UsersProvider>
@@ -491,4 +510,17 @@ export default function ActivitiesPage() {
     </AuthGuard>
   );
 }
+
+export default function ActivitiesPage() {
+  return <ActivitiesModule />;
+}
+
+
+
+
+
+
+
+
+
 

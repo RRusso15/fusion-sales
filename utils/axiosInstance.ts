@@ -34,12 +34,14 @@ export const getAxiosInstance = () => {
   });
 
   /**
-   * Handle 401 globally
+   * Handle auth/authorization globally
    */
   axiosInstance.interceptors.response.use(
     (response) => response,
     (error: AxiosError) => {
-      if (error.response?.status === 401) {
+      const status = error.response?.status;
+
+      if (status === 401) {
         removeAuthCookie();
 
         if (typeof window !== "undefined") {
@@ -49,6 +51,12 @@ export const getAxiosInstance = () => {
           if (!currentPath.startsWith("/login")) {
             window.location.href = "/login";
           }
+        }
+      }
+      if (status === 403 && typeof window !== "undefined") {
+        const currentPath = window.location.pathname;
+        if (!currentPath.startsWith("/unauthorized")) {
+          window.location.href = "/unauthorized";
         }
       }
 

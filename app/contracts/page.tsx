@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
+  App,
   Button,
   Collapse,
   DatePicker,
@@ -14,13 +16,10 @@ import {
   Switch,
   Table,
   Tag,
-  message,
 } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
-import { useAuthState } from "@/providers/authProvider";
-import { normalizeRole } from "@/constants/roles";
-import { hasPermission, Permission } from "@/constants/permissions";
+import { usePermission } from "@/components/hooks/usePermission";
 import {
   ContractProvider,
   useContractActions,
@@ -30,6 +29,7 @@ import { ContractStatus, ContractStatusLabels } from "@/constants/enums";
 import type { IContract } from "@/providers/contractProvider/context";
 import { capabilityStyles } from "../capability.styles";
 import { getErrorMessage } from "@/utils/requestError";
+import { pdfService } from "@/services/pdfService";
 import {
   ClientProvider,
   useClientActions,
@@ -42,8 +42,12 @@ import {
 } from "@/providers/usersProvider";
 import dayjs, { Dayjs } from "dayjs";
 
-const ContractsContent = () => {
-  const { role, user } = useAuthState();
+interface ContractsModuleProps {
+  clientId?: string;
+}
+
+const ContractsContent = ({ clientId }: ContractsModuleProps) => {
+  const { message: appMessage } = App.useApp();
   const { contracts, isPending } = useContractState();
   const { clients } = useClientState();
   const { users: tenantUsers } = useUsersState();
@@ -53,20 +57,28 @@ const ContractsContent = () => {
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingContractId, setEditingContractId] = useState<string | null>(null);
+  const [exportingContractId, setExportingContractId] = useState<string | null>(null);
+  const [createForm] = Form.useForm();
+  const [renewalForm] = Form.useForm();
   const [editForm] = Form.useForm();
 
-  const activeRole = role ?? normalizeRole(user?.roles?.[0]);
-  const canActivate = hasPermission(activeRole, Permission.activateContract);
-  const canCancel = hasPermission(activeRole, Permission.cancelContract);
-  const canCreate = hasPermission(activeRole, Permission.createContract);
+  const { hasPermission, Permission } = usePermission();
+  const canActivate = hasPermission(Permission.activateContract);
+  const canCancel = hasPermission(Permission.cancelContract);
+  const canCreate = hasPermission(Permission.createContract);
 
   const load = useCallback(async () => {
+    const contractParams = {
+      pageNumber: 1,
+      pageSize: 100,
+      ...(clientId ? { clientId } : {}),
+    };
     await Promise.all([
-      fetchContracts({ pageNumber: 1, pageSize: 100 }),
-      fetchClients({ pageNumber: 1, pageSize: 100 }),
+      fetchContracts(contractParams),
+      ...(clientId ? [] : [fetchClients({ pageNumber: 1, pageSize: 100 })]),
       fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
     ]);
-  }, [fetchContracts, fetchClients, fetchUsers]);
+  }, [clientId, fetchContracts, fetchClients, fetchUsers]);
 
   useEffect(() => {
     if (loadedRef.current) return;
@@ -78,9 +90,9 @@ const ContractsContent = () => {
     try {
       await fn();
       await load();
-      message.success(text);
+      appMessage.success(text);
     } catch (error) {
-      message.error(getErrorMessage(error, "Action failed"));
+      appMessage.error(getErrorMessage(error, "Action failed"));
     }
   };
 
@@ -100,9 +112,9 @@ const ContractsContent = () => {
     renewalCompleteId?: string;
   }) => {
     try {
-      if (values.createClientId && values.createTitle && values.createValue !== undefined && values.createStartDate && values.createEndDate && canCreate) {
+      if ((clientId || values.createClientId) && values.createTitle && values.createValue !== undefined && values.createStartDate && values.createEndDate && canCreate) {
         await createContract({
-          clientId: values.createClientId,
+          clientId: clientId ?? values.createClientId,
           title: values.createTitle,
           contractValue: values.createValue,
           currency: values.createCurrency,
@@ -111,6 +123,7 @@ const ContractsContent = () => {
           ownerId: values.createOwnerId,
           autoRenew: values.createAutoRenew,
         });
+        createForm.resetFields();
       }
       if (values.renewalContractId && values.renewalStartDate && values.renewalEndDate && values.renewalValue !== undefined && canCreate) {
         await createRenewal(values.renewalContractId, {
@@ -118,14 +131,16 @@ const ContractsContent = () => {
           proposedEndDate: values.renewalEndDate.format("YYYY-MM-DD"),
           proposedValue: values.renewalValue,
         });
+        renewalForm.resetFields();
       }
       if (values.renewalCompleteId && canActivate) {
         await completeRenewal(values.renewalCompleteId);
+        renewalForm.resetFields(["renewalCompleteId"]);
       }
       await load();
-      message.success("Contract action completed");
+      appMessage.success("Contract action completed");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to process contract action"));
+      appMessage.error(getErrorMessage(error, "Unable to process contract action"));
     }
   };
 
@@ -152,10 +167,25 @@ const ContractsContent = () => {
       setIsEditOpen(false);
       setEditingContractId(null);
       await load();
-      message.success("Contract updated");
+      appMessage.success("Contract updated");
     } catch (error) {
       if ((error as { errorFields?: unknown })?.errorFields) return;
-      message.error(getErrorMessage(error, "Unable to update contract"));
+      appMessage.error(getErrorMessage(error, "Unable to update contract"));
+    }
+  };
+
+  const canExportContract = canCreate || canActivate || canCancel;
+
+  const handleDownloadPdf = async (contractId: string) => {
+    if (!canExportContract) return;
+    setExportingContractId(contractId);
+    try {
+      await pdfService.generateContractPdf(contractId);
+      appMessage.success("Download started");
+    } catch (error) {
+      appMessage.error(getErrorMessage(error, "Unable to generate contract PDF"));
+    } finally {
+      setExportingContractId(null);
     }
   };
 
@@ -174,31 +204,45 @@ const ContractsContent = () => {
       key: "actions",
       render: (_, record) => (
         <Space>
-          <Button size="small" onClick={() => openEdit(record)} disabled={!canCreate}>
-            Edit
-          </Button>
-          <Button
-            size="small"
-            disabled={record.status !== ContractStatus.Draft || !canActivate}
-            onClick={() =>
-              runAction(
-                () => activateContract(record.id),
-                "Contract activated"
-              )
-            }
-          >
-            Activate
-          </Button>
-          <Button
-            size="small"
-            danger
-            disabled={!canCancel}
-            onClick={() =>
-              runAction(() => cancelContract(record.id), "Contract cancelled")
-            }
-          >
-            Cancel
-          </Button>
+          {canCreate ? (
+            <Button size="small" onClick={() => openEdit(record)}>
+              Edit
+            </Button>
+          ) : null}
+          {canActivate && record.status === ContractStatus.Draft ? (
+            <Button
+              size="small"
+              onClick={() =>
+                runAction(
+                  () => activateContract(record.id),
+                  "Contract activated"
+                )
+              }
+            >
+              Activate
+            </Button>
+          ) : null}
+          {canCancel ? (
+            <Button
+              size="small"
+              danger
+              onClick={() =>
+                runAction(() => cancelContract(record.id), "Contract cancelled")
+              }
+            >
+              Cancel
+            </Button>
+          ) : null}
+          {canExportContract ? (
+            <Button
+              size="small"
+              onClick={() => handleDownloadPdf(record.id)}
+              loading={exportingContractId === record.id}
+              disabled={!!exportingContractId && exportingContractId !== record.id}
+            >
+              Download PDF
+            </Button>
+          ) : null}
         </Space>
       ),
     },
@@ -209,15 +253,6 @@ const ContractsContent = () => {
       value: entry.id,
       label: `${entry.fullName || `${entry.firstName} ${entry.lastName}`.trim() || entry.email} (${entry.id.slice(0, 8)})`,
     })),
-    ...(user?.id && tenantUsers.every((entry) => entry.id !== user.id)
-      ? [{
-          value: user.id,
-          label:
-            `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
-            user.email ||
-            "Current User",
-        }]
-      : []),
   ].filter(
     (candidate, index, self) =>
       self.findIndex((item) => item.value === candidate.value) === index
@@ -231,22 +266,24 @@ const ContractsContent = () => {
             key: "create-contract",
             label: "Create Contract",
             children: (
-              <Form layout="vertical" onFinish={onCreateRenewal}>
-                <Form.Item
-                  name="createClientId"
-                  label="Client ID"
-                  rules={[{ required: true, message: "Select a client" }]}
-                >
-                  <Select
-                    disabled={!canCreate}
-                    options={clients.map((client) => ({
-                      value: client.id,
-                      label: `${client.name} (${client.id.slice(0, 8)})`,
-                    }))}
-                    showSearch
-                    optionFilterProp="label"
-                  />
-                </Form.Item>
+              <Form form={createForm} layout="vertical" onFinish={onCreateRenewal}>
+                {!clientId ? (
+                  <Form.Item
+                    name="createClientId"
+                    label="Client ID"
+                    rules={[{ required: true, message: "Select a client" }]}
+                  >
+                    <Select
+                      disabled={!canCreate}
+                      options={clients.map((client) => ({
+                        value: client.id,
+                        label: `${client.name} (${client.id.slice(0, 8)})`,
+                      }))}
+                      showSearch
+                      optionFilterProp="label"
+                    />
+                  </Form.Item>
+                ) : null}
                 <Form.Item
                   name="createTitle"
                   label="Title"
@@ -293,9 +330,11 @@ const ContractsContent = () => {
                 <Form.Item name="createAutoRenew" label="Auto Renew" valuePropName="checked">
                   <Switch disabled={!canCreate} />
                 </Form.Item>
-                <Button type="primary" htmlType="submit" disabled={!canCreate}>
-                  Create Contract
-                </Button>
+                {canCreate ? (
+                  <Button type="primary" htmlType="submit" loading={isPending}>
+                    Create Contract
+                  </Button>
+                ) : null}
               </Form>
             ),
           },
@@ -303,7 +342,7 @@ const ContractsContent = () => {
             key: "renewal-contract",
             label: "Renewal Actions",
             children: (
-              <Form layout="vertical" onFinish={onCreateRenewal}>
+              <Form form={renewalForm} layout="vertical" onFinish={onCreateRenewal}>
                 <Form.Item name="renewalContractId" label="Renewal: Contract ID">
                   <Select
                     disabled={!canCreate}
@@ -327,9 +366,11 @@ const ContractsContent = () => {
                 <Form.Item name="renewalCompleteId" label="Renewal Complete: Renewal ID">
                   <Input disabled={!canActivate} />
                 </Form.Item>
-                <Button type="primary" htmlType="submit" disabled={!canCreate && !canActivate}>
-                  Run Renewal Action
-                </Button>
+                {canCreate || canActivate ? (
+                  <Button type="primary" htmlType="submit" loading={isPending}>
+                    Run Renewal Action
+                  </Button>
+                ) : null}
               </Form>
             ),
           },
@@ -350,7 +391,7 @@ const ContractsContent = () => {
           setEditingContractId(null);
         }}
         onOk={onEditSave}
-        okButtonProps={{ disabled: !canCreate }}
+        okButtonProps={{ style: { display: canCreate ? "inline-flex" : "none" } }}
       >
         <Form form={editForm} layout="vertical">
           <Form.Item name="title" label="Title">
@@ -368,17 +409,26 @@ const ContractsContent = () => {
   );
 };
 
-export default function ContractsPage() {
+export function ContractsModule({ clientId }: ContractsModuleProps) {
   return (
     <AuthGuard>
       <UsersProvider>
         <ClientProvider>
           <ContractProvider>
-            <ContractsContent />
+            <ContractsContent clientId={clientId} />
           </ContractProvider>
         </ClientProvider>
       </UsersProvider>
     </AuthGuard>
   );
 }
+
+export default function ContractsPage() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/clients");
+  }, [router]);
+  return null;
+}
+
 

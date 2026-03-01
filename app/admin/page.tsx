@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import {
+  App,
   Button,
   Card,
   Col,
@@ -10,11 +11,10 @@ import {
   Table,
   Tag,
   Typography,
-  message,
 } from "antd";
 import type { TableProps } from "antd";
 import { useAuthActions, useAuthState } from "@/providers/authProvider";
-import { normalizeRole } from "@/constants/roles";
+import { resolveUserRole } from "@/constants/roles";
 import {
   DashboardProvider,
   useDashboardActions,
@@ -42,6 +42,7 @@ import type { IContract } from "@/providers/contractProvider/context";
 import { adminStyles } from "./admin.styles";
 
 const AdminWorkspace = () => {
+  const { message: appMessage } = App.useApp();
   const { currentUser, user, role, tenantId } = useAuthState();
   const { logout } = useAuthActions();
   const { overview, salesPerformance, contractsExpiring, isPending: dashboardPending } =
@@ -55,7 +56,7 @@ const AdminWorkspace = () => {
   const contractActions = useContractActions();
   const hasLoadedRef = useRef(false);
 
-  const activeRole = role ?? normalizeRole(user?.roles?.[0]) ?? "Unknown";
+  const activeRole = resolveUserRole(role, user?.roles) ?? "Unknown";
 
   const loadAdminData = useCallback(async () => {
     try {
@@ -72,14 +73,14 @@ const AdminWorkspace = () => {
     } catch (error) {
       const status = (error as { response?: { status?: number } })?.response?.status;
       if (status === 403) {
-        message.error("You do not have permission for one or more admin datasets.");
+        appMessage.error("You do not have permission for one or more admin datasets.");
         return;
       }
       if (status === 404) {
-        message.warning("Some resources were not found in your tenant scope.");
+        appMessage.warning("Some resources were not found in your tenant scope.");
         return;
       }
-      message.error("Failed to load admin workspace data.");
+      appMessage.error("Failed to load admin workspace data.");
     }
   }, [contractActions, dashboardActions, opportunityActions, pricingActions]);
 
@@ -151,6 +152,12 @@ const AdminWorkspace = () => {
           <Tag>{tenantId ?? currentUser?.tenantId ?? "No Tenant"}</Tag>
         </div>
         <div style={adminStyles.actions}>
+          <Link href="/admin/users">
+            <Button type="primary">Manage Users</Button>
+          </Link>
+          <Link href="/admin/settings">
+            <Button>Admin Settings</Button>
+          </Link>
           <Link href="/sales/contracts/expiring">
             <Button>Expiring Contracts Screen</Button>
           </Link>

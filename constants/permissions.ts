@@ -27,25 +27,44 @@ export const Permission = {
   completeActivity: "completeActivity",
   deleteActivity: "deleteActivity",
   deleteDocument: "deleteDocument",
+  deleteNote: "deleteNote",
 } as const;
 
 export type PermissionValue = (typeof Permission)[keyof typeof Permission];
 
-const allPermissions: PermissionValue[] = Object.values(Permission);
-
 export const RolePermissions: Record<RoleValue, PermissionValue[]> = {
-  [Roles.Admin]: allPermissions,
-  [Roles.SalesManager]: allPermissions.filter(
-    (perm) =>
-      perm !== Permission.manageSettings &&
-      perm !== Permission.manageUsers &&
-      perm !== Permission.deleteContract
-  ),
+  [Roles.Admin]: Object.values(Permission),
+  [Roles.SalesManager]: [
+    Permission.viewReports,
+    Permission.createClient,
+    Permission.deleteClient,
+    Permission.createContact,
+    Permission.setPrimaryContact,
+    Permission.deleteContact,
+    Permission.createOpportunity,
+    Permission.updateOpportunityStage,
+    Permission.viewAllOpportunities,
+    Permission.assignOpportunity,
+    Permission.closeOpportunity,
+    Permission.createPricingRequest,
+    Permission.assignPricingRequest,
+    Permission.createProposal,
+    Permission.approveProposal,
+    Permission.rejectProposal,
+    Permission.createContract,
+    Permission.activateContract,
+    Permission.cancelContract,
+    Permission.deleteContract,
+    Permission.createActivity,
+    Permission.completeActivity,
+    Permission.deleteActivity,
+    Permission.deleteDocument,
+    Permission.deleteNote,
+  ],
   [Roles.BusinessDevelopmentManager]: [
     Permission.createClient,
     Permission.createContact,
     Permission.setPrimaryContact,
-    Permission.deleteContact,
     Permission.createOpportunity,
     Permission.updateOpportunityStage,
     Permission.viewAllOpportunities,
@@ -56,6 +75,8 @@ export const RolePermissions: Record<RoleValue, PermissionValue[]> = {
     Permission.completeActivity,
   ],
   [Roles.SalesRep]: [
+    Permission.viewAllOpportunities,
+    Permission.createOpportunity,
     Permission.createPricingRequest,
     Permission.createActivity,
     Permission.completeActivity,

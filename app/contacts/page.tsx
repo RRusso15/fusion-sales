@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
-  Button,
+  App,
+  Button,
   Collapse,
   Form,
   Input,
@@ -11,13 +13,10 @@ import {
   Space,
   Switch,
   Table,
-  message,
 } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
-import { useAuthState } from "@/providers/authProvider";
-import { normalizeRole } from "@/constants/roles";
-import { hasPermission, Permission } from "@/constants/permissions";
+import { usePermission } from "@/components/hooks/usePermission";
 import {
   ContactProvider,
   useContactActions,
@@ -32,28 +31,37 @@ import type { IContact } from "@/providers/contactProvider/context";
 import { capabilityStyles } from "../capability.styles";
 import { getErrorMessage } from "@/utils/requestError";
 
-const ContactsContent = () => {
-  const { role, user } = useAuthState();
+interface ContactsModuleProps {
+  clientId?: string;
+}
+
+const ContactsContent = ({ clientId }: ContactsModuleProps) => {
+  const { message: appMessage } = App.useApp();
   const { contacts, isPending } = useContactState();
   const { clients } = useClientState();
-  const { fetchContacts, createContact, updateContact, setPrimaryContact, deleteContact } = useContactActions();
+  const { fetchContacts, fetchContactsByClient, createContact, updateContact, setPrimaryContact, deleteContact } = useContactActions();
   const { fetchClients } = useClientActions();
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
+  const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
 
-  const activeRole = role ?? normalizeRole(user?.roles?.[0]);
-  const canSetPrimary = hasPermission(activeRole, Permission.setPrimaryContact);
-  const canDelete = hasPermission(activeRole, Permission.deleteContact);
-  const canCreate = hasPermission(activeRole, Permission.createContact);
+  const { hasPermission, Permission } = usePermission();
+  const canSetPrimary = hasPermission(Permission.setPrimaryContact);
+  const canDelete = hasPermission(Permission.deleteContact);
+  const canCreate = hasPermission(Permission.createContact);
 
   const load = useCallback(async () => {
+    if (clientId) {
+      await fetchContactsByClient(clientId);
+      return;
+    }
     await Promise.all([
       fetchContacts({ pageNumber: 1, pageSize: 20 }),
       fetchClients({ pageNumber: 1, pageSize: 100 }),
     ]);
-  }, [fetchContacts, fetchClients]);
+  }, [clientId, fetchContactsByClient, fetchContacts, fetchClients]);
 
   useEffect(() => {
     if (loadedRef.current) return;
@@ -65,9 +73,9 @@ const ContactsContent = () => {
     try {
       await deleteContact(id);
       await load();
-      message.success("Contact deleted");
+      appMessage.success("Contact deleted");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to delete contact"));
+      appMessage.error(getErrorMessage(error, "Unable to delete contact"));
     }
   };
 
@@ -81,9 +89,9 @@ const ContactsContent = () => {
     createPrimary?: boolean;
   }) => {
     try {
-      if (values.createClientId && values.createFirstName && values.createLastName && canCreate) {
+      if ((clientId || values.createClientId) && values.createFirstName && values.createLastName && canCreate) {
         await createContact({
-          clientId: values.createClientId,
+          clientId: clientId ?? values.createClientId,
           firstName: values.createFirstName,
           lastName: values.createLastName,
           email: values.createEmail,
@@ -91,11 +99,12 @@ const ContactsContent = () => {
           position: values.createPosition,
           isPrimaryContact: values.createPrimary,
         });
+        createForm.resetFields();
       }
       await load();
-      message.success("Contact created");
+      appMessage.success("Contact created");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to create contact"));
+      appMessage.error(getErrorMessage(error, "Unable to create contact"));
     }
   };
 
@@ -130,10 +139,10 @@ const ContactsContent = () => {
       setIsEditOpen(false);
       setEditingContactId(null);
       await load();
-      message.success("Contact updated");
+      appMessage.success("Contact updated");
     } catch (error) {
       if ((error as { errorFields?: unknown })?.errorFields) return;
-      message.error(getErrorMessage(error, "Unable to update contact"));
+      appMessage.error(getErrorMessage(error, "Unable to update contact"));
     }
   };
 
@@ -146,17 +155,20 @@ const ContactsContent = () => {
       key: "actions",
       render: (_, record) => (
         <Space>
-          <Button size="small" onClick={() => openEdit(record)} disabled={!canCreate}>
-            Edit
-          </Button>
-          <Button
-            size="small"
-            danger
-            disabled={!canDelete}
-            onClick={() => onDelete(record.id)}
-          >
-            Delete
-          </Button>
+          {canCreate ? (
+            <Button size="small" onClick={() => openEdit(record)}>
+              Edit
+            </Button>
+          ) : null}
+          {canDelete ? (
+            <Button
+              size="small"
+              danger
+              onClick={() => onDelete(record.id)}
+            >
+              Delete
+            </Button>
+          ) : null}
         </Space>
       ),
     },
@@ -170,18 +182,20 @@ const ContactsContent = () => {
             key: "create-contact",
             label: "Create Contact",
             children: (
-              <Form layout="vertical" onFinish={onCreate}>
-                <Form.Item name="createClientId" label="Client ID">
-                  <Select
-                    disabled={!canCreate}
-                    options={clients.map((client) => ({
-                      value: client.id,
-                      label: `${client.name} (${client.id.slice(0, 8)})`,
-                    }))}
-                    showSearch
-                    optionFilterProp="label"
-                  />
-                </Form.Item>
+              <Form form={createForm} layout="vertical" onFinish={onCreate}>
+                {!clientId ? (
+                  <Form.Item name="createClientId" label="Client ID">
+                    <Select
+                      disabled={!canCreate}
+                      options={clients.map((client) => ({
+                        value: client.id,
+                        label: `${client.name} (${client.id.slice(0, 8)})`,
+                      }))}
+                      showSearch
+                      optionFilterProp="label"
+                    />
+                  </Form.Item>
+                ) : null}
                 <Form.Item name="createFirstName" label="First Name">
                   <Input disabled={!canCreate} />
                 </Form.Item>
@@ -200,9 +214,11 @@ const ContactsContent = () => {
                 <Form.Item name="createPrimary" label="Is Primary" valuePropName="checked">
                   <Switch disabled={!canCreate} />
                 </Form.Item>
-                <Button type="primary" htmlType="submit" disabled={!canCreate}>
-                  Create Contact
-                </Button>
+                {canCreate ? (
+                  <Button type="primary" htmlType="submit" loading={isPending}>
+                    Create Contact
+                  </Button>
+                ) : null}
               </Form>
             ),
           },
@@ -223,7 +239,7 @@ const ContactsContent = () => {
           setEditingContactId(null);
         }}
         onOk={onEditSave}
-        okButtonProps={{ disabled: !canCreate }}
+        okButtonProps={{ style: { display: canCreate ? "inline-flex" : "none" } }}
       >
         <Form form={editForm} layout="vertical">
           <Form.Item name="firstName" label="First Name">
@@ -250,15 +266,23 @@ const ContactsContent = () => {
   );
 };
 
-export default function ContactsPage() {
+export function ContactsModule({ clientId }: ContactsModuleProps) {
   return (
     <AuthGuard>
       <ClientProvider>
         <ContactProvider>
-          <ContactsContent />
+          <ContactsContent clientId={clientId} />
         </ContactProvider>
       </ClientProvider>
     </AuthGuard>
   );
+}
+
+export default function ContactsPage() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/clients");
+  }, [router]);
+  return null;
 }
 

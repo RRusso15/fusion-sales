@@ -45,6 +45,8 @@ export interface IActivityActionContext {
 
   fetchMyActivities: (params?: {
     status?: ActivityStatusValue;
+    relatedToType?: RelatedToTypeValue;
+    relatedToId?: string;
     pageNumber?: number;
     pageSize?: number;
   }) => Promise<void>;

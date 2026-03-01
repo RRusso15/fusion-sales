@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams } from "next/navigation";
 import {
-  Button,
+  App,
+  Button,
   Collapse,
   Form,
   Input,
@@ -12,13 +14,10 @@ import {
   Space,
   Table,
   Tag,
-  message,
 } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
-import { useAuthState } from "@/providers/authProvider";
-import { normalizeRole } from "@/constants/roles";
-import { hasPermission, Permission } from "@/constants/permissions";
+import { usePermission } from "@/components/hooks/usePermission";
 import {
   OpportunityProvider,
   useOpportunityActions,
@@ -34,6 +33,8 @@ import {
 import { capabilityStyles } from "../capability.styles";
 import type { IOpportunity } from "@/providers/opportunityProvider/context";
 import { getErrorMessage } from "@/utils/requestError";
+import { workflowService } from "@/utils/workflowService";
+import { pdfService } from "@/services/pdfService";
 import {
   ClientProvider,
   useClientActions,
@@ -49,53 +50,58 @@ import {
   useUsersActions,
   useUsersState,
 } from "@/providers/usersProvider";
+import { PageTransition } from "@/components/ui/PageTransition";
+import { ContentSkeleton } from "@/components/ui/ContentSkeleton";
 
 const OpportunitiesContent = () => {
-  const { role, user } = useAuthState();
+  const { message: appMessage } = App.useApp();
+  const params = useParams<{ clientId?: string }>();
+  const clientId = typeof params?.clientId === "string" ? params.clientId : undefined;
   const { opportunities, isPending } = useOpportunityState();
   const { clients } = useClientState();
   const { contacts } = useContactState();
   const { users: tenantUsers } = useUsersState();
-  const { fetchOpportunities, fetchMyOpportunities, createOpportunity, updateOpportunity, assignOpportunity, moveStage } =
+  const { fetchOpportunities, createOpportunity, updateOpportunity, assignOpportunity, moveStage } =
     useOpportunityActions();
   const { fetchClients } = useClientActions();
-  const { fetchContacts } = useContactActions();
+  const { fetchContacts, fetchContactsByClient } = useContactActions();
   const { fetchUsers } = useUsersActions();
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingOpportunityId, setEditingOpportunityId] = useState<string | null>(null);
+  const [exportingOpportunityId, setExportingOpportunityId] = useState<string | null>(null);
+  const [flashedOpportunityId, setFlashedOpportunityId] = useState<string | null>(null);
   const [editForm] = Form.useForm();
   const [createForm] = Form.useForm();
   const createClientId = Form.useWatch("createClientId", createForm);
 
-  const activeRole = role ?? normalizeRole(user?.roles?.[0]);
-  const canSeeAll = hasPermission(activeRole, Permission.viewAllOpportunities);
-  const canUpdateStage = hasPermission(activeRole, Permission.updateOpportunityStage);
-  const canCloseOpportunity = hasPermission(activeRole, Permission.closeOpportunity);
-  const canCreate = hasPermission(activeRole, Permission.createOpportunity);
-  const canAssign = hasPermission(activeRole, Permission.assignOpportunity);
+  const { hasPermission, Permission } = usePermission();
+  const canUpdateStage = hasPermission(Permission.updateOpportunityStage);
+  const canCloseOpportunity = hasPermission(Permission.closeOpportunity);
+  const canCreate = hasPermission(Permission.createOpportunity);
+  const canAssign = hasPermission(Permission.assignOpportunity);
 
   const load = useCallback(async () => {
-    if (canSeeAll) {
-      await Promise.all([
-        fetchOpportunities({ pageNumber: 1, pageSize: 20 }),
-        fetchClients({ pageNumber: 1, pageSize: 100 }),
-        fetchContacts({ pageNumber: 1, pageSize: 200 }),
-        fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
-      ]);
-      return;
-    }
+    const opportunitiesParams = {
+      pageNumber: 1,
+      pageSize: 20,
+      ...(clientId ? { clientId } : {}),
+    };
+    const contactLoad = clientId
+      ? fetchContactsByClient(clientId)
+      : fetchContacts({ pageNumber: 1, pageSize: 200 });
+
     await Promise.all([
-      fetchMyOpportunities({ pageNumber: 1, pageSize: 20 }),
+      fetchOpportunities(opportunitiesParams),
       fetchClients({ pageNumber: 1, pageSize: 100 }),
-      fetchContacts({ pageNumber: 1, pageSize: 200 }),
+      contactLoad,
       fetchUsers({ pageNumber: 1, pageSize: 200, isActive: true }),
     ]);
   }, [
-    canSeeAll,
-    fetchMyOpportunities,
+    clientId,
     fetchOpportunities,
     fetchClients,
+    fetchContactsByClient,
     fetchContacts,
     fetchUsers,
   ]);
@@ -111,29 +117,51 @@ const OpportunitiesContent = () => {
       const record = opportunities.find((item) => item.id === id);
       const currentStage = record?.stage ?? OpportunityStage.Lead;
       if (currentStage >= OpportunityStage.Negotiation) {
-        message.info("Use Close Won or Close Lost to complete this opportunity.");
+        appMessage.info("Use Close Won or Close Lost to complete this opportunity.");
         return;
       }
       const nextStage = (currentStage + 1) as OpportunityStageValue;
       await moveStage(id, nextStage, "Advanced from UI workflow");
+      try {
+        await workflowService.handleOpportunityStageChange({
+          opportunityId: id,
+          newStage: nextStage,
+        });
+      } catch (workflowError) {
+        console.error("Opportunity stage workflow failed", workflowError);
+        appMessage.warning("Primary action succeeded. Follow-up automation failed.");
+      }
       await load();
-      message.success("Stage advanced");
+      setFlashedOpportunityId(id);
+      setTimeout(() => setFlashedOpportunityId((current) => (current === id ? null : current)), 280);
+      appMessage.success("Stage advanced");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to advance stage"));
+      appMessage.error(getErrorMessage(error, "Unable to advance stage"));
     }
   };
 
   const handleClose = async (id: string, stage: OpportunityStageValue) => {
     try {
       await moveStage(id, stage, "Closed via workflow");
+      try {
+        await workflowService.handleOpportunityStageChange({
+          opportunityId: id,
+          newStage: stage,
+        });
+      } catch (workflowError) {
+        console.error("Opportunity close workflow failed", workflowError);
+        appMessage.warning("Primary action succeeded. Follow-up automation failed.");
+      }
       await load();
-      message.success(
+      setFlashedOpportunityId(id);
+      setTimeout(() => setFlashedOpportunityId((current) => (current === id ? null : current)), 280);
+      appMessage.success(
         stage === OpportunityStage.ClosedWon
           ? "Moved to Closed Won"
           : "Moved to Closed Lost"
       );
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to update opportunity stage"));
+      appMessage.error(getErrorMessage(error, "Unable to update opportunity stage"));
     }
   };
 
@@ -148,23 +176,24 @@ const OpportunitiesContent = () => {
     assignUserId?: string;
   }) => {
     try {
-      if (values.createTitle && values.createClientId && canCreate) {
+      if (values.createTitle && (clientId || values.createClientId) && canCreate) {
         await createOpportunity({
           title: values.createTitle,
-          clientId: values.createClientId,
+          clientId: clientId ?? values.createClientId,
           contactId: values.createContactId,
           estimatedValue: values.createValue,
           stage: values.createStage as OpportunityStageValue | undefined,
           source: values.createSource as OpportunitySourceValue | undefined,
         });
+        createForm.resetFields();
       }
       if (values.assignId && values.assignUserId && canAssign) {
         await assignOpportunity(values.assignId, values.assignUserId);
       }
       await load();
-      message.success("Opportunity action completed");
+      appMessage.success("Opportunity action completed");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to process opportunity action"));
+      appMessage.error(getErrorMessage(error, "Unable to process opportunity action"));
     }
   };
 
@@ -191,10 +220,22 @@ const OpportunitiesContent = () => {
       setIsEditOpen(false);
       setEditingOpportunityId(null);
       await load();
-      message.success("Opportunity updated");
+      appMessage.success("Opportunity updated");
     } catch (error) {
       if ((error as { errorFields?: unknown })?.errorFields) return;
-      message.error(getErrorMessage(error, "Unable to update opportunity"));
+      appMessage.error(getErrorMessage(error, "Unable to update opportunity"));
+    }
+  };
+
+  const handleDownloadSummary = async (opportunityId: string) => {
+    setExportingOpportunityId(opportunityId);
+    try {
+      await pdfService.generateOpportunitySummaryPdf(opportunityId);
+      appMessage.success("Download started");
+    } catch (error) {
+      appMessage.error(getErrorMessage(error, "Unable to generate opportunity summary PDF"));
+    } finally {
+      setExportingOpportunityId(null);
     }
   };
 
@@ -204,7 +245,7 @@ const OpportunitiesContent = () => {
       title: "Stage",
       dataIndex: "stage",
       key: "stage",
-      render: (value?: number) => {
+      render: (value?: number, record?: IOpportunity) => {
         const stage = value ?? 0;
         const colorByStage: Record<number, string> = {
           [OpportunityStage.Lead]: "default",
@@ -215,7 +256,10 @@ const OpportunitiesContent = () => {
           [OpportunityStage.ClosedLost]: "red",
         };
         return (
-          <Tag color={colorByStage[stage] ?? "default"}>
+          <Tag
+            color={colorByStage[stage] ?? "default"}
+            className={record?.id === flashedOpportunityId ? "status-flash" : ""}
+          >
             {(OpportunityStageLabels as Record<number, string>)[stage] ?? "-"}
           </Tag>
         );
@@ -232,34 +276,47 @@ const OpportunitiesContent = () => {
 
         return (
           <Space>
-            <Button size="small" onClick={() => openEdit(record)} disabled={!canCreate}>
-              Edit
-            </Button>
+            {canCreate ? (
+              <Button size="small" onClick={() => openEdit(record)}>
+                Edit
+              </Button>
+            ) : null}
+            {canUpdateStage && !closed ? (
+              <Button
+                size="small"
+                onClick={() => handleAdvance(record.id)}
+              >
+                Advance
+              </Button>
+            ) : null}
+            {canCloseOpportunity && !closed ? (
+              <Button
+                size="small"
+                onClick={() =>
+                  handleClose(record.id, OpportunityStage.ClosedWon)
+                }
+              >
+                Close Won (5)
+              </Button>
+            ) : null}
+            {canCloseOpportunity && !closed ? (
+              <Button
+                size="small"
+                danger
+                onClick={() =>
+                  handleClose(record.id, OpportunityStage.ClosedLost)
+                }
+              >
+                Close Lost (6)
+              </Button>
+            ) : null}
             <Button
               size="small"
-              disabled={!canUpdateStage || closed}
-              onClick={() => handleAdvance(record.id)}
+              onClick={() => handleDownloadSummary(record.id)}
+              loading={exportingOpportunityId === record.id}
+              disabled={!!exportingOpportunityId && exportingOpportunityId !== record.id}
             >
-              Advance
-            </Button>
-            <Button
-              size="small"
-              disabled={!canCloseOpportunity || closed}
-              onClick={() =>
-                handleClose(record.id, OpportunityStage.ClosedWon)
-              }
-            >
-              Close Won (5)
-            </Button>
-            <Button
-              size="small"
-              danger
-              disabled={!canCloseOpportunity || closed}
-              onClick={() =>
-                handleClose(record.id, OpportunityStage.ClosedLost)
-              }
-            >
-              Close Lost (6)
+              Download Summary
             </Button>
           </Space>
         );
@@ -282,7 +339,11 @@ const OpportunitiesContent = () => {
     : contacts;
 
   return (
-    <div style={capabilityStyles.container}>
+    <PageTransition>
+      {isPending && opportunities.length === 0 ? (
+        <ContentSkeleton variant="table" />
+      ) : (
+    <div style={capabilityStyles.container} className="fade-in">
       <Collapse
         items={[
           {
@@ -293,17 +354,19 @@ const OpportunitiesContent = () => {
                 <Form.Item name="createTitle" label="Title">
                   <Input disabled={!canCreate} />
                 </Form.Item>
-                <Form.Item name="createClientId" label="Client ID">
-                  <Select
-                    disabled={!canCreate}
-                    options={clients.map((client) => ({
-                      value: client.id,
-                      label: `${client.name} (${client.id.slice(0, 8)})`,
-                    }))}
-                    showSearch
-                    optionFilterProp="label"
-                  />
-                </Form.Item>
+                {!clientId ? (
+                  <Form.Item name="createClientId" label="Client ID">
+                    <Select
+                      disabled={!canCreate}
+                      options={clients.map((client) => ({
+                        value: client.id,
+                        label: `${client.name} (${client.id.slice(0, 8)})`,
+                      }))}
+                      showSearch
+                      optionFilterProp="label"
+                    />
+                  </Form.Item>
+                ) : null}
                 <Form.Item name="createContactId" label="Contact ID">
                   <Select
                     disabled={!canCreate}
@@ -336,9 +399,11 @@ const OpportunitiesContent = () => {
                     }))}
                   />
                 </Form.Item>
-                <Button type="primary" htmlType="submit" disabled={!canCreate}>
-                  Create Opportunity
-                </Button>
+                {canCreate ? (
+                  <Button type="primary" htmlType="submit" loading={isPending}>
+                    Create Opportunity
+                  </Button>
+                ) : null}
               </Form>
             ),
           },
@@ -369,15 +434,18 @@ const OpportunitiesContent = () => {
                     optionFilterProp="label"
                   />
                 </Form.Item>
-                <Button type="primary" htmlType="submit" disabled={!canAssign}>
-                  Assign Opportunity
-                </Button>
+                {canAssign ? (
+                  <Button type="primary" htmlType="submit" loading={isPending}>
+                    Assign Opportunity
+                  </Button>
+                ) : null}
               </Form>
             ),
           },
         ]}
       />
       <Table<IOpportunity>
+        className={`table-fade table-row-hover ${isPending ? "loading" : ""}`}
         rowKey="id"
         loading={isPending}
         dataSource={opportunities}
@@ -392,7 +460,7 @@ const OpportunitiesContent = () => {
           setEditingOpportunityId(null);
         }}
         onOk={onEditSave}
-        okButtonProps={{ disabled: !canCreate }}
+        okButtonProps={{ style: { display: canCreate ? "inline-flex" : "none" } }}
       >
         <Form form={editForm} layout="vertical">
           <Form.Item name="title" label="Title">
@@ -407,10 +475,12 @@ const OpportunitiesContent = () => {
         </Form>
       </Modal>
     </div>
+      )}
+    </PageTransition>
   );
 };
 
-export default function OpportunitiesPage() {
+export function OpportunitiesModule() {
   return (
     <AuthGuard>
       <UsersProvider>
@@ -425,4 +495,9 @@ export default function OpportunitiesPage() {
     </AuthGuard>
   );
 }
+
+export default function OpportunitiesPage() {
+  return <OpportunitiesModule />;
+}
+
 

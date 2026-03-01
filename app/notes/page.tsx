@@ -1,23 +1,34 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, Form, Input, Modal, Select, Space, Switch, Table, message } from "antd";
+import { useRouter } from "next/navigation";
+import { App, Button, Form, Input, Modal, Select, Space, Switch, Table } from "antd";
 import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
+import { usePermission } from "@/components/hooks/usePermission";
+import { useAuthState } from "@/providers/authProvider";
 import { getAxiosInstance } from "@/utils/axiosInstance";
 import { capabilityStyles } from "../capability.styles";
 import { getErrorMessage } from "@/utils/requestError";
-import { RelatedToTypeLabels, RelatedToTypeValue } from "@/constants/enums";
+import { RelatedToType, RelatedToTypeLabels, RelatedToTypeValue } from "@/constants/enums";
+
+interface NotesModuleProps {
+  clientId?: string;
+}
 
 interface NoteRow {
   id: string;
   content: string;
+  createdById?: string;
   relatedToType?: number;
   relatedToId?: string;
   isPrivate?: boolean;
 }
 
-const NotesContent = () => {
+const NotesContent = ({ clientId }: NotesModuleProps) => {
+  const { message: appMessage } = App.useApp();
+  const { user } = useAuthState();
+  const { hasPermission, Permission } = usePermission();
   const axios = getAxiosInstance();
   const [rows, setRows] = useState<NoteRow[]>([]);
   const [isPending, setIsPending] = useState(false);
@@ -25,21 +36,28 @@ const NotesContent = () => {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editForm] = Form.useForm<NoteRow>();
   const loadedRef = useRef(false);
+  const canDeleteNotes = hasPermission(Permission.deleteNote);
 
   const load = useCallback(async () => {
     setIsPending(true);
     try {
       const response = await axios.get("/api/Notes", {
-        params: { pageNumber: 1, pageSize: 20 },
+        params: {
+          pageNumber: 1,
+          pageSize: 20,
+          ...(clientId
+            ? { relatedToType: RelatedToType.Client, relatedToId: clientId }
+            : {}),
+        },
       });
       const data = response.data;
       setRows(data.items ?? data);
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to load notes"));
+      appMessage.error(getErrorMessage(error, "Unable to load notes"));
     } finally {
       setIsPending(false);
     }
-  }, [axios]);
+  }, [axios, clientId]);
 
   useEffect(() => {
     if (loadedRef.current) return;
@@ -64,17 +82,17 @@ const NotesContent = () => {
       const values = await editForm.validateFields();
       await axios.put(`/api/Notes/${editingNoteId}`, {
         content: values.content,
-        relatedToType: values.relatedToType,
-        relatedToId: values.relatedToId,
+        relatedToType: clientId ? RelatedToType.Client : values.relatedToType,
+        relatedToId: clientId ?? values.relatedToId,
         isPrivate: values.isPrivate,
       });
-      message.success("Note updated");
+      appMessage.success("Note updated");
       setIsEditOpen(false);
       setEditingNoteId(null);
       await load();
     } catch (error) {
       if ((error as { errorFields?: unknown })?.errorFields) return;
-      message.error(getErrorMessage(error, "Unable to update note"));
+      appMessage.error(getErrorMessage(error, "Unable to update note"));
     }
   };
 
@@ -93,27 +111,31 @@ const NotesContent = () => {
       key: "actions",
       render: (_, record) => (
         <Space>
-          <Button
-            size="small"
-            onClick={() => openEdit(record)}
-          >
-            Update
-          </Button>
-          <Button
-            size="small"
-            danger
-            onClick={async () => {
-              try {
-                await axios.delete(`/api/Notes/${record.id}`);
-                await load();
-                message.success("Note deleted");
-              } catch (error) {
-                message.error(getErrorMessage(error, "Unable to delete note"));
-              }
-            }}
-          >
-            Delete
-          </Button>
+          {!record.createdById || record.createdById === user?.id || canDeleteNotes ? (
+            <Button
+              size="small"
+              onClick={() => openEdit(record)}
+            >
+              Update
+            </Button>
+          ) : null}
+          {canDeleteNotes ? (
+            <Button
+              size="small"
+              danger
+              onClick={async () => {
+                try {
+                  await axios.delete(`/api/Notes/${record.id}`);
+                  await load();
+                  appMessage.success("Note deleted");
+                } catch (error) {
+                  appMessage.error(getErrorMessage(error, "Unable to delete note"));
+                }
+              }}
+            >
+              Delete
+            </Button>
+          ) : null}
         </Space>
       ),
     },
@@ -145,18 +167,22 @@ const NotesContent = () => {
           >
             <Input.TextArea rows={4} />
           </Form.Item>
-          <Form.Item name="relatedToType" label="Related Type">
-            <Select
-              allowClear
-              options={Object.entries(RelatedToTypeLabels).map(([value, label]) => ({
-                value: Number(value) as RelatedToTypeValue,
-                label,
-              }))}
-            />
-          </Form.Item>
-          <Form.Item name="relatedToId" label="Related ID">
-            <Input />
-          </Form.Item>
+          {!clientId ? (
+            <>
+              <Form.Item name="relatedToType" label="Related Type">
+                <Select
+                  allowClear
+                  options={Object.entries(RelatedToTypeLabels).map(([value, label]) => ({
+                    value: Number(value) as RelatedToTypeValue,
+                    label,
+                  }))}
+                />
+              </Form.Item>
+              <Form.Item name="relatedToId" label="Related ID">
+                <Input />
+              </Form.Item>
+            </>
+          ) : null}
           <Form.Item name="isPrivate" label="Private" valuePropName="checked">
             <Switch />
           </Form.Item>
@@ -166,11 +192,19 @@ const NotesContent = () => {
   );
 };
 
-export default function NotesPage() {
+export function NotesModule({ clientId }: NotesModuleProps) {
   return (
     <AuthGuard>
-      <NotesContent />
+      <NotesContent clientId={clientId} />
     </AuthGuard>
   );
+}
+
+export default function NotesPage() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/clients");
+  }, [router]);
+  return null;
 }
 

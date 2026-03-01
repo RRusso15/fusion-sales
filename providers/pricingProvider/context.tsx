@@ -25,6 +25,7 @@ export interface IPricingStateContext {
 
 export interface IPricingActionContext {
   fetchPricingRequests: (params?: {
+    clientId?: string;
     status?: PricingRequestStatusValue;
     priority?: PriorityValue;
     assignedToId?: string;

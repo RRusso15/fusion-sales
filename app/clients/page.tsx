@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Button,
+  App,
+  Button,
   Collapse,
   Form,
   Input,
@@ -11,13 +12,11 @@ import {
   Space,
   Table,
   Tag,
-  message,
 } from "antd";
 import type { TableProps } from "antd";
+import { useRouter } from "next/navigation";
 import { AuthGuard } from "@/components/guards/AuthGuard";
-import { useAuthState } from "@/providers/authProvider";
-import { normalizeRole } from "@/constants/roles";
-import { hasPermission, Permission } from "@/constants/permissions";
+import { usePermission } from "@/components/hooks/usePermission";
 import {
   ClientProvider,
   useClientActions,
@@ -28,19 +27,24 @@ import type { ClientTypeValue } from "@/constants/enums";
 import type { IClient } from "@/providers/clientProvider/context";
 import { capabilityStyles } from "../capability.styles";
 import { getErrorMessage } from "@/utils/requestError";
+import { PageTransition } from "@/components/ui/PageTransition";
+import { ContentSkeleton } from "@/components/ui/ContentSkeleton";
 
 const ClientsContent = () => {
-  const { role, user } = useAuthState();
+  const { message: appMessage } = App.useApp();
+  const router = useRouter();
   const { clients, isPending } = useClientState();
   const { fetchClients, createClient, updateClient, deleteClient } = useClientActions();
   const loadedRef = useRef(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
+  const [openingClientId, setOpeningClientId] = useState<string | null>(null);
+  const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
 
-  const activeRole = role ?? normalizeRole(user?.roles?.[0]);
-  const canDelete = hasPermission(activeRole, Permission.deleteClient);
-  const canCreate = hasPermission(activeRole, Permission.createClient);
+  const { hasPermission, Permission } = usePermission();
+  const canDelete = hasPermission(Permission.deleteClient);
+  const canCreate = hasPermission(Permission.createClient);
 
   const load = useCallback(async () => {
     await fetchClients({ pageNumber: 1, pageSize: 100, isActive: true });
@@ -56,9 +60,9 @@ const ClientsContent = () => {
     try {
       await deleteClient(id);
       await load();
-      message.success("Client deleted");
+      appMessage.success("Client deleted");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to delete client"));
+      appMessage.error(getErrorMessage(error, "Unable to delete client"));
     }
   };
 
@@ -76,11 +80,12 @@ const ClientsContent = () => {
           clientType: values.createType as ClientTypeValue | undefined,
           website: values.createWebsite,
         });
+        createForm.resetFields();
       }
       await load();
-      message.success("Client created");
+      appMessage.success("Client created");
     } catch (error) {
-      message.error(getErrorMessage(error, "Unable to create client"));
+      appMessage.error(getErrorMessage(error, "Unable to create client"));
     }
   };
 
@@ -109,10 +114,10 @@ const ClientsContent = () => {
       setIsEditOpen(false);
       setEditingClientId(null);
       await load();
-      message.success("Client updated");
+      appMessage.success("Client updated");
     } catch (error) {
       if ((error as { errorFields?: unknown })?.errorFields) return;
-      message.error(getErrorMessage(error, "Unable to update client"));
+      appMessage.error(getErrorMessage(error, "Unable to update client"));
     }
   };
 
@@ -132,40 +137,57 @@ const ClientsContent = () => {
       key: "actions",
       render: (_, record) => (
         <Space>
-          <Button size="small" onClick={() => openEdit(record)} disabled={!canCreate}>
-            Edit
-          </Button>
           <Button
             size="small"
-            danger
-            disabled={!canDelete}
-            onClick={() => onDelete(record.id)}
+            loading={openingClientId === record.id}
+            onClick={() => {
+              setOpeningClientId(record.id);
+              router.push(`/clients/${record.id}/overview`);
+            }}
           >
-            Delete
+            Open Workspace
           </Button>
+          {canCreate ? (
+            <Button size="small" onClick={() => openEdit(record)}>
+              Edit
+            </Button>
+          ) : null}
+          {canDelete ? (
+            <Button
+              size="small"
+              danger
+              onClick={() => onDelete(record.id)}
+            >
+              Delete
+            </Button>
+          ) : null}
         </Space>
       ),
     },
   ];
 
   return (
-    <div style={capabilityStyles.container}>
+    <PageTransition>
+      {isPending && clients.length === 0 ? (
+        <ContentSkeleton variant="table" />
+      ) : (
+    <div style={capabilityStyles.container} className="fade-in">
       <Collapse
         items={[
-          {
+          ...(canCreate
+            ? [{
             key: "create-client",
             label: "Create Client",
             children: (
-              <Form layout="vertical" onFinish={onCreate}>
+              <Form form={createForm} layout="vertical" onFinish={onCreate}>
                 <Form.Item name="createName" label="Name">
-                  <Input disabled={!canCreate} />
+                  <Input />
                 </Form.Item>
                 <Form.Item name="createIndustry" label="Industry">
-                  <Input disabled={!canCreate} />
+                  <Input />
                 </Form.Item>
                 <Form.Item name="createType" label="Type">
                   <Select
-                    disabled={!canCreate}
                     options={[
                       { value: 1, label: "Government" },
                       { value: 2, label: "Private" },
@@ -174,17 +196,19 @@ const ClientsContent = () => {
                   />
                 </Form.Item>
                 <Form.Item name="createWebsite" label="Website">
-                  <Input disabled={!canCreate} />
+                  <Input />
                 </Form.Item>
-                <Button type="primary" htmlType="submit" disabled={!canCreate}>
+                <Button type="primary" htmlType="submit" loading={isPending} className="press">
                   Create Client
                 </Button>
               </Form>
             ),
-          },
+          }]
+            : []),
         ]}
       />
       <Table<IClient>
+        className={`table-fade table-row-hover ${isPending ? "loading" : ""}`}
         rowKey="id"
         loading={isPending}
         dataSource={clients}
@@ -199,18 +223,17 @@ const ClientsContent = () => {
           setEditingClientId(null);
         }}
         onOk={onEditSave}
-        okButtonProps={{ disabled: !canCreate }}
+        okButtonProps={{ style: { display: canCreate ? "inline-flex" : "none" } }}
       >
         <Form form={editForm} layout="vertical">
           <Form.Item name="name" label="Name">
-            <Input disabled={!canCreate} />
+            <Input />
           </Form.Item>
           <Form.Item name="industry" label="Industry">
-            <Input disabled={!canCreate} />
+            <Input />
           </Form.Item>
           <Form.Item name="clientType" label="Type">
             <Select
-              disabled={!canCreate}
               options={[
                 { value: 1, label: "Government" },
                 { value: 2, label: "Private" },
@@ -219,11 +242,13 @@ const ClientsContent = () => {
             />
           </Form.Item>
           <Form.Item name="website" label="Website">
-            <Input disabled={!canCreate} />
+            <Input />
           </Form.Item>
         </Form>
       </Modal>
     </div>
+      )}
+    </PageTransition>
   );
 };
 

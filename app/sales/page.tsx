@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
+  App,
   Alert,
   Button,
   Card,
@@ -11,11 +12,10 @@ import {
   Table,
   Tag,
   Typography,
-  message,
 } from "antd";
 import type { TableProps } from "antd";
 import { useAuthActions, useAuthState } from "@/providers/authProvider";
-import { normalizeRole, Roles } from "@/constants/roles";
+import { normalizeRole } from "@/constants/roles";
 import {
   ActivityProvider,
   useActivityActions,
@@ -52,6 +52,7 @@ import {
 import { salesStyles } from "./sales.styles";
 
 const SalesWorkspace = () => {
+  const { message: appMessage } = App.useApp();
   const { currentUser, user, role, tenantId } = useAuthState();
   const { logout } = useAuthActions();
   const { overview, contractsExpiring, isPending: dashboardPending } =
@@ -67,27 +68,23 @@ const SalesWorkspace = () => {
   const pricingActions = usePricingActions();
 
   const activeRole = role ?? normalizeRole(user?.roles?.[0]);
-  const canSeeTeamScope =
-    activeRole === Roles.Admin ||
-    activeRole === Roles.SalesManager ||
-    activeRole === Roles.BusinessDevelopmentManager;
 
   const handleRequestError = useCallback((error: unknown) => {
     const status = (error as { response?: { status?: number } })?.response?.status;
 
     if (status === 404) {
-      message.warning("Requested data was not found.");
+      appMessage.warning("Requested data was not found.");
       return;
     }
     if (status === 403) {
-      message.error("You are not authorized for this action.");
+      appMessage.error("You are not authorized for this action.");
       return;
     }
     if (status === 400) {
-      message.error("Validation error on request.");
+      appMessage.error("Validation error on request.");
       return;
     }
-    message.error("Unable to load dashboard data.");
+    appMessage.error("Unable to load dashboard data.");
   }, []);
 
   const loadSalesData = useCallback(async () => {
@@ -97,21 +94,13 @@ const SalesWorkspace = () => {
       dashboardActions.fetchActivitiesSummary(),
     ];
 
-    if (canSeeTeamScope) {
-      jobs.push(
-        opportunityActions.fetchOpportunities({ pageNumber: 1, pageSize: 8 }),
-        dashboardActions.fetchPipelineMetrics(),
-        dashboardActions.fetchSalesPerformance(5),
-        activityActions.fetchActivities({ pageNumber: 1, pageSize: 8 }),
-        pricingActions.fetchPendingRequests()
-      );
-    } else {
-      jobs.push(
-        opportunityActions.fetchMyOpportunities({ pageNumber: 1, pageSize: 8 }),
-        activityActions.fetchMyActivities({ pageNumber: 1, pageSize: 8 }),
-        pricingActions.fetchMyRequests()
-      );
-    }
+    jobs.push(
+      opportunityActions.fetchOpportunities({ pageNumber: 1, pageSize: 8 }),
+      dashboardActions.fetchPipelineMetrics(),
+      dashboardActions.fetchSalesPerformance(5),
+      activityActions.fetchActivities({ pageNumber: 1, pageSize: 8 }),
+      pricingActions.fetchPricingRequests({ pageNumber: 1, pageSize: 8 })
+    );
 
     try {
       await Promise.all(jobs);
@@ -120,7 +109,6 @@ const SalesWorkspace = () => {
     }
   }, [
     activityActions,
-    canSeeTeamScope,
     dashboardActions,
     handleRequestError,
     opportunityActions,
@@ -279,12 +267,12 @@ const SalesWorkspace = () => {
       {!activeRole ? (
         <Alert
           type="warning"
-          message="Role claim missing from token. Your view may be limited."
+          title="Role claim missing from token. Your view may be limited."
           showIcon
         />
       ) : null}
 
-      <Card title={canSeeTeamScope ? "Team Opportunities" : "My Opportunities"} style={salesStyles.section}>
+      <Card title="Opportunities" style={salesStyles.section}>
         <Table<IOpportunity>
           rowKey="id"
           columns={opportunityColumns}
@@ -294,7 +282,7 @@ const SalesWorkspace = () => {
         />
       </Card>
 
-      <Card title={canSeeTeamScope ? "Team Activities" : "My Activities"} style={salesStyles.section}>
+      <Card title="Activities" style={salesStyles.section}>
         <Table<IActivity>
           rowKey="id"
           columns={activityColumns}
@@ -304,10 +292,7 @@ const SalesWorkspace = () => {
         />
       </Card>
 
-      <Card
-        title={canSeeTeamScope ? "Pending Pricing Requests" : "My Pricing Requests"}
-        style={salesStyles.section}
-      >
+      <Card title="Pricing Requests" style={salesStyles.section}>
         <Table<IPricingRequest>
           rowKey="id"
           columns={pricingColumns}
