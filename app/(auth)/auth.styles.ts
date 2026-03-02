@@ -56,6 +56,7 @@ export const authStyles: Record<string, CSSProperties> = {
   logoContainer: {
     textAlign: "center",
     marginBottom: 10,
+    paddingTop: 20,
   },
 
   logo: {
