@@ -20,6 +20,7 @@ import type { TableProps } from "antd";
 import { AuthGuard } from "@/components/guards/AuthGuard";
 import { Roles } from "@/constants/roles";
 import { useAuthState } from "@/providers/authProvider";
+import { canSendInviteEmail, sendInviteEmail } from "@/services/emailService";
 import { getAxiosInstance } from "@/utils/axiosInstance";
 import {
   UsersProvider,
@@ -51,6 +52,7 @@ const AdminUsersContent = () => {
   const { fetchUsers } = useUsersActions();
   const loadedRef = useRef(false);
   const [inviteLink, setInviteLink] = useState("");
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
   const activeTenantId = useMemo(() => tenantId ?? currentUser?.tenantId, [tenantId, currentUser?.tenantId]);
 
   const loadTenantUsers = useCallback(async () => {
@@ -96,23 +98,66 @@ const AdminUsersContent = () => {
     }
   };
 
-  const handleGenerateInviteLink = (values: InviteFormValues) => {
+  const handleGenerateInviteLink = async (values: InviteFormValues) => {
     if (!activeTenantId) {
       appMessage.error("Tenant information missing in current session.");
       return;
     }
 
+    const inviteeEmail = values.email.trim();
+    if (!inviteeEmail) {
+      appMessage.error("Please provide a valid invite email.");
+      return;
+    }
+
+    setIsSendingInvite(true);
+
     const params = new URLSearchParams({
       tenantId: activeTenantId,
       role: values.role,
-      email: values.email.trim(),
+      email: inviteeEmail,
     });
     const path = `/register?${params.toString()}`;
     const generatedLink =
       typeof window === "undefined" ? path : `${window.location.origin}${path}`;
 
     setInviteLink(generatedLink);
-    appMessage.success("Invite link generated.");
+
+    if (!canSendInviteEmail()) {
+      appMessage.success("Invite link generated.");
+      appMessage.info(
+        "Email not sent. Configure EmailJS keys in .env.local first."
+      );
+      setIsSendingInvite(false);
+      return;
+    }
+
+    const inviterName =
+      `${currentUser?.firstName ?? ""} ${currentUser?.lastName ?? ""}`.trim() ||
+      currentUser?.email ||
+      "Fusion Sales Admin";
+    const companyName =
+      process.env.NEXT_PUBLIC_EMAIL_INVITE_COMPANY_NAME?.trim() ||
+      "Your Organisation";
+
+    try {
+      await sendInviteEmail({
+        toEmail: inviteeEmail,
+        inviteLink: generatedLink,
+        role: values.role,
+        inviterName,
+        companyName,
+      });
+      appMessage.success("Invite link generated and email sent.");
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown EmailJS error.";
+      appMessage.warning(
+        `Invite link generated, but failed to send email. ${errorMessage}`
+      );
+    } finally {
+      setIsSendingInvite(false);
+    }
   };
 
   const handleCopyInviteLink = async () => {
@@ -220,7 +265,7 @@ const AdminUsersContent = () => {
             </Col>
             <Col xs={24}>
               <Space>
-                <Button type="primary" htmlType="submit">
+                <Button type="primary" htmlType="submit" loading={isSendingInvite}>
                   Generate Invite Link
                 </Button>
                 <Button onClick={handleCopyInviteLink}>Copy to Clipboard</Button>
