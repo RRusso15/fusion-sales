@@ -202,7 +202,7 @@ export const AiSetupWizard = ({ existingClientId }: AiSetupWizardProps) => {
           />
           <Space>
             <Button type="primary" onClick={runExtract} loading={isExtracting} className="press">
-              Extract (Free)
+              Extract with Heuristic
             </Button>
             <Button onClick={runEnhance} loading={isEnhancing} disabled={!draftPlan} className="press">
               Enhance with AI
