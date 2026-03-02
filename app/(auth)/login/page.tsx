@@ -35,7 +35,7 @@ export default function LoginPage() {
           alt="Fusion Sales Logo"
           width={200}
           height={200}
-          style={authStyles.logo}
+          style={{ ...authStyles.logo, paddingTop: 100 }}
           priority
         />
       </div>
@@ -85,7 +85,7 @@ export default function LoginPage() {
 
       <div style={authStyles.footerText}>
         <Typography.Text>
-          Don’t have an account?{" "}
+          Don't have an account?{" "}
           <Link href="/register">Sign up</Link>
         </Typography.Text>
       </div>
@@ -96,14 +96,6 @@ export default function LoginPage() {
           <Link href="/privacy">Privacy Policy</Link>
         </Typography.Text>
       </div>
-
     </>
   );
 }
-
-
-
-
-
-
-
